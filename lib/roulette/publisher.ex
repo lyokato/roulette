@@ -1,20 +1,22 @@
 defmodule Roulette.Publisher do
 
-  @max_retry 5
-
   require Logger
+
+  alias Roulette.ClusterChooser
+  alias Roulette.Config
+  alias Roulette.ConnectionKeeper
 
   @spec pub(String.t, any) :: :ok | :error
   def pub(topic, data) do
-    # TODO max_retryはconfigに
-    Roulette.ClusterChooser.choose(topic)
-    |> pub_on_cluster(topic, data, 0, @max_retry)
+    max_retry = Config.get(:publisher, :max_retry)
+    ClusterChooser.choose(topic)
+    |> pub_on_cluster(topic, data, 0, max_retry)
   end
 
   defp pub_on_cluster(pool, topic, data, retry, max_retry) do
     :poolboy.transaction(pool, fn conn_keeper ->
 
-      case Roulette.ConnectionKeeper.connection(conn_keeper) do
+      case ConnectionKeeper.connection(conn_keeper) do
 
         {:ok, gnat} ->
           case Gnat.pub(gnat, topic, data) do
