@@ -6,6 +6,11 @@ defmodule Roulette.SubscriptionSupervisor do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
   end
 
+  def init(_args) do
+    [worker(Roulette.Subscription, [])]
+    |> supervise(strategy: :simple_one_for_one)
+  end
+
   def start_child(pool, consumer, topic) do
     opts = %{
       pool:     pool,
@@ -17,11 +22,6 @@ defmodule Roulette.SubscriptionSupervisor do
 
   def terminate_child(pid) do
     Supervisor.terminate_child(__MODULE__, pid)
-  end
-
-  def init(_args) do
-    [worker(Roulette.Subscription, [])]
-    |> supervise(strategy: :simple_one_for_one)
   end
 
 end

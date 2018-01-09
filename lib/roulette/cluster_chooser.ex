@@ -2,24 +2,24 @@ defmodule Roulette.ClusterChooser do
 
   def choose(topic) do
 
-    [ring, pools_list] = FastGlobal.get(:roulette_clusters)
+    [ring, hosts] = FastGlobal.get(:roulette_clusters)
 
     idx = HashRing.find_node(ring, topic)
 
-    Enum.at(pools_list, String.to_integer(idx))
+    Enum.at(hosts, String.to_integer(idx))
 
   end
 
-  def init(pools_list) do
+  def init(hosts) do
 
-    len = length(pools_list)
+    len = length(hosts)
 
     ring = idx_list(len) |> Enum.reduce(HashRing.new(), fn idx, ring ->
       {:ok, ring2} = HashRing.add_node(ring, "#{idx}")
       ring2
     end)
 
-    FastGlobal.put(:roulette_clusters, [ring, pools_list])
+    FastGlobal.put(:roulette_clusters, [ring, hosts])
 
   end
 

@@ -6,6 +6,7 @@ defmodule Roulette.Mixfile do
       app: :roulette,
       version: "0.1.0",
       elixir: "~> 1.5",
+      package: package(),
       start_permanent: Mix.env == :prod,
       deps: deps()
     ]
@@ -15,20 +16,36 @@ defmodule Roulette.Mixfile do
   def application do
     [
       extra_applications: [
+        :ex_hash_ring,
+        :fastglobal,
         :logger,
-        :gproc
+        :gnat,
+        :gproc,
+        :poolboy
       ]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      #{:ex_doc, "~> 0.15", only: :dev, runtime: false},
       {:ex_hash_ring, "~> 1.0"},
-      {:poolboy, "~> 1.5"},
       {:fastglobal, "~> 1.0"},
       {:gnat, "~> 0.4.1"},
-      {:gproc, "~> 0.6.1"}
+      {:gproc, "~> 0.6.1"},
+      {:poolboy, "~> 1.5"}
+    ]
+  end
+
+  defp package() do
+    [
+      description: "HashRing supported gnatsd client",
+      licenses: ["MIT"],
+      links: %{
+        "Github" => "https://github.com/lyokato/roulette",
+        "Docs"   => "https://hexdocs.pm/roulette"
+      },
+      maintainers: ["Lyo Kato"]
     ]
   end
 end

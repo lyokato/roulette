@@ -2,6 +2,7 @@ defmodule Roulette.Publisher do
 
   require Logger
 
+  alias Roulette.AtomGenerator
   alias Roulette.ClusterChooser
   alias Roulette.Config
   alias Roulette.ConnectionKeeper
@@ -9,8 +10,13 @@ defmodule Roulette.Publisher do
   @spec pub(String.t, any) :: :ok | :error
   def pub(topic, data) do
     max_retry = Config.get(:publisher, :max_retry)
-    ClusterChooser.choose(topic)
+    choose_pool(topic)
     |> pub_on_cluster(topic, data, 0, max_retry)
+  end
+
+  defp choose_pool(topic) do
+    host = ClusterChooser.choose(topic)
+    AtomGenerator.cluster_pool(:publisher, host)
   end
 
   defp pub_on_cluster(pool, topic, data, retry, max_retry) do

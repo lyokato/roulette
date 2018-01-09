@@ -4,10 +4,7 @@ defmodule Roulette.ConnectionKeeper do
 
   use GenServer
 
-  @spec connection(pid)
-  :: {:ok, pid}
-  |  {:error, :not_found}
-
+  @spec connection(pid) :: {:ok, pid} | {:error, :not_found}
   def connection(pid) do
     GenServer.call(pid, :get_connection)
   end
