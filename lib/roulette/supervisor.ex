@@ -8,6 +8,7 @@ defmodule Roulette.Supervisor do
   alias Roulette.ClusterChooser
   alias Roulette.ClusterSupervisor
   alias Roulette.Config
+  alias Roulette.SubscriptionSupervisor
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)

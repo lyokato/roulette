@@ -19,6 +19,7 @@ defmodule Roulette.ConnectionKeeper do
   end
 
   def init(opts) do
+    Logger.debug "<Roulett.Connection> init"
     Process.flag(:trap_exit, true)
     send self(), :connect
     {:ok, new(opts)}
@@ -32,9 +33,12 @@ defmodule Roulette.ConnectionKeeper do
         port: state.port
       })
 
+    Logger.debug "<Roulett.Connection> start to connect: #{state.host}"
+
     case Gnat.start_link(gnat_opts) do
 
       {:ok, gnat} ->
+        Logger.debug "<Roulett.Connection> connected!: #{state.host}"
         {:noreply, %{state|gnat: gnat}}
 
       other ->
@@ -49,7 +53,8 @@ defmodule Roulette.ConnectionKeeper do
     Process.send_after(self(), :connect, state.retry_interval)
     {:noreply, %{state| gnat: nil}}
   end
-  def handle_info(_info, state) do
+  def handle_info(info, state) do
+    Logger.debug "<Roulette.Connection> unknown info: #{inspect info}"
     {:noreply, state}
   end
 
