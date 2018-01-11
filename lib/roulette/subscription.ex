@@ -3,6 +3,7 @@ defmodule Roulette.Subscription do
   require Logger
 
   use GenServer
+
   alias Roulette.ConnectionKeeper
   alias Roulette.Config
 
@@ -17,7 +18,7 @@ defmodule Roulette.Subscription do
             gnat: nil,
             ref: nil
 
-  def start_link(opts) do
+  def start_link(_, opts) do
     GenServer.start_link(__MODULE__, opts)
   end
 

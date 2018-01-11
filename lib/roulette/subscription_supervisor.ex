@@ -17,7 +17,7 @@ defmodule Roulette.SubscriptionSupervisor do
       consumer: consumer,
       topic:    topic
     }
-    Supervisor.start_child(__MODULE__, opts)
+    Supervisor.start_child(__MODULE__, [opts])
   end
 
   def terminate_child(pid) do
