@@ -3,6 +3,16 @@ defmodule Roulette.ClusterSupervisor do
   use Supervisor
   require Logger
 
+  def child_spec(opts) do
+    %{
+      id: Keyword.fetch!(opts, :name),
+      start: {__MODULE__, :start_link, [opts]},
+      restart: :permanent,
+      shutdown: 5_000,
+      type: :supervisor
+    }
+  end
+
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     Supervisor.start_link(__MODULE__, opts, name: name)
@@ -17,7 +27,7 @@ defmodule Roulette.ClusterSupervisor do
     size     = Keyword.fetch!(opts, :pool_size)
 
     children(name, host, port, interval, size)
-    |> supervise(strategy: :one_for_one)
+    |> Supervisor.init(strategy: :one_for_one)
 
   end
 

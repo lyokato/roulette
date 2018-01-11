@@ -4,6 +4,11 @@ defmodule Roulette do
   Documentation for Roulette.
   """
 
+  def child_spec(), do: child_spec([])
+  def child_spec(opts) do
+    Roulette.Supervisor.child_spec(opts)
+  end
+
   @spec pub(String.t, any) :: :ok | :error
   def pub(topic, data) do
     Roulette.Publisher.pub(topic, data)

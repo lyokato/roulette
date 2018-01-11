@@ -10,12 +10,12 @@ defmodule Roulette.Supervisor do
   alias Roulette.Config
   alias Roulette.SubscriptionSupervisor
 
-  def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(_opts) do
+    Supervisor.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
   def init(opts) do
-    children(opts) |> supervise(strategy: :one_for_one)
+    children(opts) |> Supervisor.init(strategy: :one_for_one)
   end
 
   defp children(_opts) do
@@ -53,7 +53,7 @@ defmodule Roulette.Supervisor do
     end)
 
     if Config.get(:subscriber, :enabled) do
-      [supervisor(SubscriptionSupervisor, [])] ++ cluster_supervisors
+      [{SubscriptionSupervisor, []}] ++ cluster_supervisors
     else
       cluster_supervisors
     end
@@ -65,14 +65,13 @@ defmodule Roulette.Supervisor do
     name = AtomGenerator.cluster_supervisor(role, host)
     pool = AtomGenerator.cluster_pool(role, host)
 
-    supervisor(ClusterSupervisor, [
+    {ClusterSupervisor,
       [name:           name,
        host:           host,
        port:           port,
        retry_interval: retry_interval,
        pool_name:      pool,
-       pool_size:      pool_size]
-    ], [id: name])
+       pool_size:      pool_size]}
 
   end
 
