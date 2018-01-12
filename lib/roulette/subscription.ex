@@ -119,21 +119,21 @@ defmodule Roulette.Subscription do
               {:noreply, %{state | ref: ref, gnat: conn}}
 
             other when retry_count < max_retry ->
-              Logger.warn "<Roulette.Subscription> failed to subscribe on gnat: #{inspect other}"
+              Logger.error "<Roulette.Subscription> failed to subscribe on gnat: #{inspect other}"
               setup(state, retry_count + 1, max_retry)
 
             other ->
-              Logger.warn "<Roulette.Subscription> failed to subscribe on gnat: #{inspect other}"
+              Logger.error "<Roulette.Subscription> failed to subscribe on gnat: #{inspect other}"
               {:stop, :shutdown, state}
 
           end
 
         {:error, :disconnected} when retry_count < max_retry ->
-          Logger.warn "<Roulette.Subscription> couldn't checkout gnat connection"
+          Logger.error "<Roulette.Subscription> couldn't checkout gnat connection"
           setup(state, retry_count + 1, max_retry)
 
         {:error, :disconnected} ->
-          Logger.warn "<Roulette.Subscription> couldn't checkout gnat connection"
+          Logger.error "<Roulette.Subscription> couldn't checkout gnat connection"
           {:stop, :shutdown, state}
 
       end
@@ -147,7 +147,7 @@ defmodule Roulette.Subscription do
       Gnat.sub(conn, self(), topic)
     catch
       :exit, e ->
-        Logger.warn "<Roulette.Subscription> failed to subscribe: #{inspect e}"
+        Logger.error "<Roulette.Subscription> failed to subscribe: #{inspect e}"
         {:error, :timeout}
     end
   end
@@ -157,7 +157,7 @@ defmodule Roulette.Subscription do
       Gnat.unsub(conn, ref)
     catch
       :exit, e ->
-        Logger.warn "<Roulette.Subscription> failed to unsubscribe: #{inspect e}"
+        Logger.error "<Roulette.Subscription> failed to unsubscribe: #{inspect e}"
         {:error, :timeout}
     end
   end
