@@ -51,7 +51,7 @@ Supervisor.start_link(children, )
 
 Server process in your app.
 
-```exlixir
+```elixir
 defmodule YourSession do
 
   use GenServer
