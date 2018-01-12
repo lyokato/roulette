@@ -53,7 +53,6 @@ defmodule Roulette.Publisher do
   end
 
   defp do_gnat_pub(gnat, topic, data) do
-    Logger.debug "<Roulette.Publisher> pub #{topic}"
     try do
       Gnat.pub(gnat, topic, data)
     catch

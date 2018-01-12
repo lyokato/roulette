@@ -1,7 +1,6 @@
 defmodule Roulette.ClusterSupervisor do
 
   use Supervisor
-  require Logger
 
   def child_spec(opts) do
     %{

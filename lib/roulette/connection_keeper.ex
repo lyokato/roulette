@@ -19,7 +19,6 @@ defmodule Roulette.ConnectionKeeper do
   end
 
   def init(opts) do
-    Logger.debug "<Roulett.Connection:#{inspect self()}> init"
     Process.flag(:trap_exit, true)
     send self(), :connect
     {:ok, new(opts)}
@@ -33,17 +32,13 @@ defmodule Roulette.ConnectionKeeper do
         port: state.port
       })
 
-    Logger.debug "<Roulett.Connection:#{inspect self()}> start to connect: #{state.host}"
-
     case Gnat.start_link(gnat_opts) do
 
       {:ok, gnat} ->
-        Logger.debug "<Roulett.Connection:#{inspect self()}> connected!: #{state.host}"
         {:noreply, %{state|gnat: gnat}}
 
       other ->
         Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect: #{inspect other}"
-        Logger.debug "<Roulette.Connection:#{inspect self()}> retry after #{state.retry_interval}ms"
         Process.send_after(self(), :connect, state.retry_interval)
         {:noreply, %{state| gnat: nil}}
 
@@ -52,18 +47,13 @@ defmodule Roulette.ConnectionKeeper do
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
     Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected, try to reconnect"
-    Logger.debug "<Roulette.Connection:#{inspect self()}> retry after #{state.retry_interval}ms"
     Process.send_after(self(), :connect, state.retry_interval)
     {:noreply, %{state| gnat: nil}}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    if pid != self() do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> caught connection-failed-gnat's EXIT message"
-    end
     {:noreply, %{state| gnat: nil}}
   end
   def handle_info(info, state) do
-    Logger.debug "<Roulette.Connection:#{inspect self()}> unknown info, ignore: #{inspect info}"
     {:noreply, state}
   end
 

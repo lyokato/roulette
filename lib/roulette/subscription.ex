@@ -44,8 +44,6 @@ defmodule Roulette.Subscription do
       Process.monitor(state.consumer)
     end
 
-    Logger.debug "<Roulette.Subscription:#{inspect self()}:#{state.topic}> init"
-
     send self(), :setup
 
     {:ok, state}
@@ -55,32 +53,26 @@ defmodule Roulette.Subscription do
   def handle_info(:setup, state), do: setup(state, 0, state.max_retry)
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{gnat: pid, restart: :temporary}=state) do
-    Logger.debug "<Roulette.Subscription> gnat process<#{inspect pid}> DOWN, shutdown"
     {:stop, :shutdown, %{state| gnat: nil, ref: nil}}
   end
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{gnat: pid, restart: :permanent}=state) do
-    Logger.debug "<Roulette.Subscription> gnat process<#{inspect pid}> DOWN, shutdown"
     Process.send_after(self(), :setup, state.retry_interval)
     {:noreply, %{state| gnat: nil, ref: nil}}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{consumer: pid}=state) do
-    Logger.debug "<Roulette.Subscription:#{inspect self()}:#{state.topic}> consumer process<#{inspect pid}> DOWN, shutdown"
     {:stop, :shutdown, state}
   end
 
   def handle_info({:msg, %{body: data, topic: _topic, reply_to: _reply_to}}, state) do
-    Logger.debug "<Roulette.Subscription> received gnat message, pass it to consumer"
     send state.consumer, {:subscribed_message, state.topic, data, self()}
     {:noreply, state}
   end
 
   def handle_info({:EXIT, pid, _reason}, %{consumer: pid}=state) do
-    Logger.debug "<Roulette.Subscription:#{inspect self()}:#{state.topic}> consumer process<#{inspect pid}> EXIT, shutdown"
     {:stop, :shutdown, state}
   end
   def handle_info({:EXIT, _pid, _reason}, state) do
-    Logger.debug "<Roulette.Subscription> cought EXIT message, shutdown"
     {:stop, :shutdown, state}
   end
 
@@ -119,21 +111,21 @@ defmodule Roulette.Subscription do
               {:noreply, %{state | ref: ref, gnat: conn}}
 
             other when retry_count < max_retry ->
-              Logger.error "<Roulette.Subscription> failed to subscribe on gnat: #{inspect other}"
+              Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe on gnat: #{inspect other}"
               setup(state, retry_count + 1, max_retry)
 
             other ->
-              Logger.error "<Roulette.Subscription> failed to subscribe on gnat: #{inspect other}"
+              Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe on gnat: #{inspect other}"
               {:stop, :shutdown, state}
 
           end
 
         {:error, :disconnected} when retry_count < max_retry ->
-          Logger.error "<Roulette.Subscription> couldn't checkout gnat connection"
+          Logger.error "<Roulette.Subscription:#{inspect self()}> couldn't checkout gnat connection"
           setup(state, retry_count + 1, max_retry)
 
         {:error, :disconnected} ->
-          Logger.error "<Roulette.Subscription> couldn't checkout gnat connection"
+          Logger.error "<Roulette.Subscription:#{inspect self()}> couldn't checkout gnat connection"
           {:stop, :shutdown, state}
 
       end
@@ -147,7 +139,7 @@ defmodule Roulette.Subscription do
       Gnat.sub(conn, self(), topic)
     catch
       :exit, e ->
-        Logger.error "<Roulette.Subscription> failed to subscribe: #{inspect e}"
+        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe: #{inspect e}"
         {:error, :timeout}
     end
   end
@@ -157,7 +149,7 @@ defmodule Roulette.Subscription do
       Gnat.unsub(conn, ref)
     catch
       :exit, e ->
-        Logger.error "<Roulette.Subscription> failed to unsubscribe: #{inspect e}"
+        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to unsubscribe: #{inspect e}"
         {:error, :timeout}
     end
   end
