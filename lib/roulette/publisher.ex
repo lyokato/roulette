@@ -25,7 +25,7 @@ defmodule Roulette.Publisher do
       case ConnectionKeeper.connection(conn_keeper) do
 
         {:ok, gnat} ->
-          case Gnat.pub(gnat, topic, data) do
+          case do_gnat_pub(gnat, topic, data) do
 
             :ok -> :ok
 
@@ -50,6 +50,16 @@ defmodule Roulette.Publisher do
       end
 
     end)
+  end
+
+  defp do_gnat_pub(gnat, topic, data) do
+    try do
+      Gnat.pub(gnat, topic, data)
+    catch
+      :exit, e ->
+        Logger.warn "<Roulette.Subscription> failed to subscribe: #{inspect e}"
+        {:error, :timeout}
+    end
   end
 
 end

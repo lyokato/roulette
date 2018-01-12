@@ -18,7 +18,15 @@ defmodule Roulette.Subscription do
             gnat: nil,
             ref: nil
 
-  def start_link(_, opts) do
+  def child_spec(opts) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, []},
+      restart: :temporary
+    }
+  end
+
+  def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
 
@@ -30,7 +38,13 @@ defmodule Roulette.Subscription do
 
     :gproc.reg({:n, :l, {state.consumer, state.topic}})
 
-    Process.monitor(state.consumer)
+    if state.restart == :temporary do
+      Process.link(state.consumer)
+    else
+      Process.monitor(state.consumer)
+    end
+
+    Logger.debug "<Roulette.Subscription:#{inspect self()}:#{state.topic}> init"
 
     send self(), :setup
 
@@ -49,7 +63,7 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{consumer: pid}=state) do
-    Logger.info "<Roulette.Subscription> lost consumer process, shutdown"
+    Logger.info "<Roulette.Subscription:#{inspect self()}:#{state.topic}> consumer process DOWN<#{inspect pid}>, shutdown"
     {:stop, :shutdown, state}
   end
 
@@ -59,9 +73,21 @@ defmodule Roulette.Subscription do
     {:noreply, state}
   end
 
+  def handle_info({:EXIT, pid, _reason}, %{consumer: pid}=state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}:#{state.topic}> consumer process<#{inspect pid}> EXIT, shutdown"
+    {:stop, :shutdown, state}
+  end
   def handle_info({:EXIT, _pid, _reason}, state) do
     Logger.info "<Roulette.Subscription> cought EXIT message, shutdown"
     {:stop, :shutdown, state}
+  end
+
+  def terminate(reason, %{ref: nil}=state) do
+    :ok
+  end
+  def terminate(reason, state) do
+    do_gnat_unsub(state.gnat, state.ref)
+    :ok
   end
 
   defp new(opts) do
@@ -84,7 +110,7 @@ defmodule Roulette.Subscription do
       case ConnectionKeeper.connection(conn_keeper) do
 
         {:ok, conn} ->
-          case Gnat.sub(conn, self(), state.topic) do
+          case do_gnat_sub(conn, state.topic) do
 
             {:ok, ref} ->
               Process.monitor(conn)
@@ -113,5 +139,26 @@ defmodule Roulette.Subscription do
     end)
 
   end
+
+  defp do_gnat_sub(conn, topic) do
+    try do
+      Gnat.sub(conn, self(), topic)
+    catch
+      :exit, e ->
+        Logger.warn "<Roulette.Subscription> failed to subscribe: #{inspect e}"
+        {:error, :timeout}
+    end
+  end
+
+  defp do_gnat_unsub(conn, ref) do
+    try do
+      Gnat.unsub(conn, ref)
+    catch
+      :exit, e ->
+        Logger.warn "<Roulette.Subscription> failed to unsubscribe: #{inspect e}"
+        {:error, :timeout}
+    end
+  end
+
 
 end

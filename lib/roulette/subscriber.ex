@@ -1,11 +1,14 @@
 defmodule Roulette.Subscriber do
 
+  require Logger
+
   alias Roulette.AtomGenerator
   alias Roulette.ClusterChooser
   alias Roulette.SubscriptionSupervisor
 
   @spec sub(String.t) :: Supervisor.on_start_child
   def sub(topic) do
+    Logger.debug "SUB: #{topic}"
     consumer = self()
     case :gproc.where({:n, :l, {consumer, topic}}) do
       :undefined ->
@@ -23,13 +26,13 @@ defmodule Roulette.Subscriber do
 
   @spec unsub(pid) :: :ok
   def unsub(subscription) when is_pid(subscription) do
-    Process.demonitor(subscription)
     SubscriptionSupervisor.terminate_child(subscription)
     :ok
   end
 
   @spec unsub(String.t) :: :ok
   def unsub(topic) when is_binary(topic) do
+    Logger.debug "UNSUB: #{topic}"
     case :gproc.where({:n, :l, {self(), topic}}) do
       :undefined -> :ok
       pid        -> unsub(pid)
