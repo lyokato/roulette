@@ -19,7 +19,7 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/roulette](https://hexdocs.pm/roulette).
 
-## Usage Example
+## Simple Usage Example
 
 Configuration
 
@@ -31,12 +31,6 @@ config :roulette, :connection,
   ],
   port: 4222
 
-config :roulette, :subscriber,
-  enabled: true,
-  restart: :temporary
-
-config :roulette, :publisher,
-  enabled: true
 ```
 
 In your application bootstrap

@@ -31,12 +31,10 @@ defmodule Roulette.Config do
   @gnat_config_keys [:connection_timeout, :tls, :ssl_opts, :tcp_opts]
 
   @default_publisher_values [
-      enabled: false,
       max_retry: 5
     ]
 
   @default_subscriber_values [
-      enabled: false,
       max_retry: 5,
       retry_interval: 2_000,
       restart: :temporary

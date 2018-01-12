@@ -10,15 +10,19 @@ defmodule Roulette.Supervisor do
   alias Roulette.Config
   alias Roulette.SubscriptionSupervisor
 
-  def start_link(_opts) do
-    Supervisor.start_link(__MODULE__, nil, name: __MODULE__)
+  @type role :: :both | :subscriber | :publisher
+
+  def start_link(opts) do
+    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   def init(opts) do
     children(opts) |> Supervisor.init(strategy: :one_for_one)
   end
 
-  defp children(_opts) do
+  defp children(opts) do
+
+    role = Keyword.get(opts, :role, :both)
 
     hosts = Config.get(:connection, :hosts)
 
@@ -28,10 +32,10 @@ defmodule Roulette.Supervisor do
 
     ClusterChooser.init(hosts)
 
-    enabled_roles = [:publisher, :subscriber] |> Enum.filter(&(Config.get(&1, :enabled)))
-
-    if length(enabled_roles) == 0 do
-      raise "<Roulette> both :publisher and :subscriber are not enabled, check your configuration."
+    enabled_roles = case role do
+      :both       -> [:publisher, :subscriber]
+      :publisher  -> [:publisher]
+      :subscriber -> [:subscriber]
     end
 
     port           = Config.get(:connection, :port)
@@ -52,7 +56,7 @@ defmodule Roulette.Supervisor do
 
     end)
 
-    if Config.get(:subscriber, :enabled) do
+    if role != :publisher do
       [{SubscriptionSupervisor, []}] ++ cluster_supervisors
     else
       cluster_supervisors

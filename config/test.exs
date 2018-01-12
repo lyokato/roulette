@@ -14,11 +14,9 @@ config :roulette, :connection,
   }
 
 config :roulette, :subscriber,
-  enabled: true,
   max_retry: 5,
   retry_interval: 2_000,
   restart: :temporary
 
 config :roulette, :publisher,
-  enabled: true,
   max_retry: 5
