@@ -68,10 +68,10 @@ defmodule YourSession do
   end
 ```
 
-Anywhere else in your app.
+Anywhere else you want to publish message in your app.
 
 ```elixir
-Roulette.pub("foobar", topic)
+Roulette.pub("foobar", data)
 ```
 
 
