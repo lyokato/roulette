@@ -12,8 +12,6 @@ defmodule Roulette.Supervisor do
 
   @type role :: :both | :subscriber | :publisher
 
-  @default_port 4222
-
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -32,7 +30,7 @@ defmodule Roulette.Supervisor do
       raise "<Roulette> you should prepare at least one host, check your :ring configuration."
     end
 
-    ClusterChooser.init(ring)
+    ClusterChooser.Default.init(ring)
 
     enabled_roles = case role do
       :both       -> [:publisher, :subscriber]
@@ -57,7 +55,7 @@ defmodule Roulette.Supervisor do
     end)
 
     if role != :publisher do
-      [{SubscriptionSupervisor, []}] ++ cluster_supervisors
+      [{SubscriptionSupervisor.Default, []}] ++ cluster_supervisors
     else
       cluster_supervisors
     end
@@ -66,9 +64,9 @@ defmodule Roulette.Supervisor do
 
   defp cluster_supervisor(role, target, pool_size, retry_interval) do
 
-    {host, port} = get_host_and_port(target)
-    name = AtomGenerator.cluster_supervisor(role, host)
-    pool = AtomGenerator.cluster_pool(role, host)
+    {host, port} = Config.get_host_and_port(target)
+    name = AtomGenerator.cluster_supervisor(role, host, port)
+    pool = AtomGenerator.cluster_pool(role, host, port)
 
     {ClusterSupervisor,
       [name:           name,
@@ -78,15 +76,6 @@ defmodule Roulette.Supervisor do
        pool_name:      pool,
        pool_size:      pool_size]}
 
-  end
-
-  defp get_host_and_port(target) when is_binary(target) do
-    {target, @default_port}
-  end
-  defp get_host_and_port(target) do
-    host = Keyword.fetch!(target, :host)
-    port = Keyword.get(target, :port, @default_port)
-    {host, port}
   end
 
 end

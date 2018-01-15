@@ -15,8 +15,9 @@ defmodule Roulette.Publisher do
   end
 
   defp choose_pool(topic) do
-    host = ClusterChooser.choose(topic)
-    AtomGenerator.cluster_pool(:publisher, host)
+    target = ClusterChooser.Default.choose(topic)
+    {host, port} = Config.get_host_and_port(target)
+    AtomGenerator.cluster_pool(:publisher, host, port)
   end
 
   defp pub_on_cluster(pool, topic, data, retry, max_retry) do

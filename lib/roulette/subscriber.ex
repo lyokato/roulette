@@ -1,7 +1,10 @@
 defmodule Roulette.Subscriber do
 
+  require Logger
+
   alias Roulette.AtomGenerator
   alias Roulette.ClusterChooser
+  alias Roulette.Config
   alias Roulette.SubscriptionSupervisor
 
   @spec sub(String.t) :: Supervisor.on_start_child
@@ -10,20 +13,21 @@ defmodule Roulette.Subscriber do
     case :gproc.where({:n, :l, {consumer, topic}}) do
       :undefined ->
         choose_pool(topic)
-        |> SubscriptionSupervisor.start_child(consumer, topic)
+        |> SubscriptionSupervisor.Default.start_child(consumer, topic)
       pid ->
         {:error, {:already_started, pid}}
     end
   end
 
   defp choose_pool(topic) do
-    host = ClusterChooser.choose(topic)
-    AtomGenerator.cluster_pool(:subscriber, host)
+    target = ClusterChooser.Default.choose(topic)
+    {host, port} = Config.get_host_and_port(target)
+    AtomGenerator.cluster_pool(:subscriber, host, port)
   end
 
   @spec unsub(pid) :: :ok
   def unsub(subscription) when is_pid(subscription) do
-    SubscriptionSupervisor.terminate_child(subscription)
+    SubscriptionSupervisor.Default.terminate_child(subscription)
     :ok
   end
 

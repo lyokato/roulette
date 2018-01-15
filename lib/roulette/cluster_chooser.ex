@@ -1,8 +1,8 @@
 defmodule Roulette.ClusterChooser do
 
-  def choose(topic) do
+  def choose(type, topic) do
 
-    [ring, hosts] = FastGlobal.get(:roulette_clusters)
+    [ring, hosts] = FastGlobal.get(type)
 
     idx = HashRing.find_node(ring, topic)
 
@@ -10,7 +10,7 @@ defmodule Roulette.ClusterChooser do
 
   end
 
-  def init(hosts) do
+  def init(type, hosts) do
 
     len = length(hosts)
 
@@ -19,7 +19,7 @@ defmodule Roulette.ClusterChooser do
       ring2
     end)
 
-    FastGlobal.put(:roulette_clusters, [ring, hosts])
+    FastGlobal.put(type, [ring, hosts])
 
   end
 

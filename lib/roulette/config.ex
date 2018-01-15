@@ -1,5 +1,7 @@
 defmodule Roulette.Config do
 
+  @default_port 4222
+
   @type host :: %{
       required(:host) => String.t,
       required(:port) => pos_integer
@@ -16,7 +18,7 @@ defmodule Roulette.Config do
 
   @default_connection_values [
       hosts: [],
-      port: 4222,
+      port: @default_port,
       retry_interval: 1_000,
       max_retry: 5,
       pool_size: 5,
@@ -78,6 +80,15 @@ defmodule Roulette.Config do
       nil -> defaults
       val -> Keyword.merge(defaults, val)
     end
+  end
+
+  def get_host_and_port(target) when is_binary(target) do
+    {target, @default_port}
+  end
+  def get_host_and_port(target) do
+    host = Keyword.fetch!(target, :host)
+    port = Keyword.get(target, :port, @default_port)
+    {host, port}
   end
 
 end
