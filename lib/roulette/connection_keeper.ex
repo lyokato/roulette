@@ -38,7 +38,7 @@ defmodule Roulette.ConnectionKeeper do
         {:noreply, %{state|gnat: gnat}}
 
       other ->
-        Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect: #{inspect other}"
+        Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect - #{state.host}:#{state.port} #{inspect other}"
         Process.send_after(self(), :connect, state.retry_interval)
         {:noreply, %{state| gnat: nil}}
 
@@ -46,14 +46,14 @@ defmodule Roulette.ConnectionKeeper do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
-    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected, try to reconnect"
+    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected - #{state.host}:#{state.port}, try to reconnect"
     Process.send_after(self(), :connect, state.retry_interval)
     {:noreply, %{state| gnat: nil}}
   end
-  def handle_info({:EXIT, pid, _reason}, state) do
+  def handle_info({:EXIT, _pid, _reason}, state) do
     {:noreply, %{state| gnat: nil}}
   end
-  def handle_info(info, state) do
+  def handle_info(_info, state) do
     {:noreply, state}
   end
 

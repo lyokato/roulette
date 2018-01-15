@@ -12,6 +12,8 @@ defmodule Roulette.Supervisor do
 
   @type role :: :both | :subscriber | :publisher
 
+  @default_port 4222
+
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -24,13 +26,13 @@ defmodule Roulette.Supervisor do
 
     role = Keyword.get(opts, :role, :both)
 
-    hosts = Config.get(:connection, :hosts)
+    ring = Config.get(:connection, :ring)
 
-    if length(hosts) == 0 do
-      raise "<Roulette> you should prepare at least one host, check your configuration."
+    if length(ring) == 0 do
+      raise "<Roulette> you should prepare at least one host, check your :ring configuration."
     end
 
-    ClusterChooser.init(hosts)
+    ClusterChooser.init(ring)
 
     enabled_roles = case role do
       :both       -> [:publisher, :subscriber]
@@ -38,17 +40,15 @@ defmodule Roulette.Supervisor do
       :subscriber -> [:subscriber]
     end
 
-    port           = Config.get(:connection, :port)
     pool_size      = Config.get(:connection, :pool_size)
     retry_interval = Config.get(:connection, :retry_interval)
 
     cluster_supervisors = enabled_roles |> Enum.flat_map(fn role ->
 
-      hosts |> Enum.map(fn host ->
+      ring |> Enum.map(fn target ->
 
        cluster_supervisor(role,
-                          host,
-                          port,
+                          target,
                           pool_size,
                           retry_interval)
 
@@ -64,8 +64,9 @@ defmodule Roulette.Supervisor do
 
   end
 
-  defp cluster_supervisor(role, host, port, pool_size, retry_interval) do
+  defp cluster_supervisor(role, target, pool_size, retry_interval) do
 
+    {host, port} = get_host_and_port(target)
     name = AtomGenerator.cluster_supervisor(role, host)
     pool = AtomGenerator.cluster_pool(role, host)
 
@@ -77,6 +78,15 @@ defmodule Roulette.Supervisor do
        pool_name:      pool,
        pool_size:      pool_size]}
 
+  end
+
+  defp get_host_and_port(target) when is_binary(target) do
+    {target, @default_port}
+  end
+  defp get_host_and_port(target) do
+    host = Keyword.fetch!(target, :host)
+    port = Keyword.get(target, :port, @default_port)
+    {host, port}
   end
 
 end

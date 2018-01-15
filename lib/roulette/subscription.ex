@@ -65,7 +65,7 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:msg, %{body: data, topic: _topic, reply_to: _reply_to}}, state) do
-    send state.consumer, {:subscribed_message, state.topic, data, self()}
+    send state.consumer, {:pubsub_message, state.topic, data, self()}
     {:noreply, state}
   end
 

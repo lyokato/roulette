@@ -1,8 +1,9 @@
 use Mix.Config
 
 config :roulette, :connection,
-  hosts: ["localhost"],
-  port: 4222,
+  ring: [
+    [host: "localhost", port: 4222],
+  ],
   retry_interval: 1_000,
   max_retry: 5,
   pool_size: 5,

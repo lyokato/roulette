@@ -25,11 +25,10 @@ Configuration
 
 ```elixir
 config :roulette, :connection,
-  hosts: [
+  ring: [
     "gnatsd-cluster1.example.org",
     "gnatsd-cluster2.example.org"
-  ],
-  port: 4222
+  ]
 
 ```
 
@@ -59,13 +58,12 @@ defmodule YourSession do
     {:ok, {}}
   end
 
-  def handle_info({:subscribed_message, topic, msg, pid}, state) do
+  def handle_info({:pubsub_message, topic, msg, pid}, state) do
     # handle msg
     {:noreply, state}
   end
 
   def terminate(reason, state) do
-    Roulette.unsub("foobar")
     :ok
   end
 ```
