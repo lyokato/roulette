@@ -19,11 +19,12 @@ defmodule Roulette.SubscriptionSupervisor do
     |> Supervisor.init(strategy: :simple_one_for_one)
   end
 
-  def start_child(sup_name, pool, consumer, topic) do
+  def start_child(sup_name, pool, consumer, topic, ring_type) do
     opts = %{
-      pool:     pool,
-      consumer: consumer,
-      topic:    topic
+      pool:      pool,
+      consumer:  consumer,
+      topic:     topic,
+      ring_type: ring_type
     }
     Supervisor.start_child(sup_name, [opts])
   end

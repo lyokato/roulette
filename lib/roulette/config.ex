@@ -17,8 +17,8 @@ defmodule Roulette.Config do
     }
 
   @default_connection_values [
-      hosts: [],
-      port: @default_port,
+      ring: [],
+      reserved_ring: [],
       retry_interval: 1_000,
       max_retry: 5,
       pool_size: 5,

@@ -8,8 +8,10 @@ defmodule Roulette.Subscription do
   alias Roulette.Config
 
   @type restart_strategy :: :temporary | :permanent
+  @type ring_type :: :default | :reserved
 
   defstruct topic: "",
+            ring_type: :default,
             consumer: nil,
             retry_interval: 2_000,
             restart: :permanent,
@@ -18,7 +20,7 @@ defmodule Roulette.Subscription do
             gnat: nil,
             ref: nil
 
-  def child_spec(opts) do
+  def child_spec(_opts) do
     %{
       id: __MODULE__,
       start: {__MODULE__, :start_link, []},
@@ -36,7 +38,7 @@ defmodule Roulette.Subscription do
 
     state = new(opts)
 
-    :gproc.reg({:n, :l, {state.consumer, state.topic}})
+    :gproc.reg({:n, :l, {state.consumer, state.topic, state.ring_type}})
 
     if state.restart == :temporary do
       Process.link(state.consumer)
@@ -76,10 +78,10 @@ defmodule Roulette.Subscription do
     {:stop, :shutdown, state}
   end
 
-  def terminate(reason, %{ref: nil}=state) do
+  def terminate(_reason, %{ref: nil}) do
     :ok
   end
-  def terminate(reason, state) do
+  def terminate(_reason, state) do
     do_gnat_unsub(state.gnat, state.ref)
     :ok
   end
@@ -89,6 +91,7 @@ defmodule Roulette.Subscription do
       pool:           opts.pool,
       consumer:       opts.consumer,
       topic:          opts.topic,
+      ring_type:      opts.ring_type,
       restart:        Config.get(:subscriber, :restart),
       retry_interval: Config.get(:subscriber, :retry_interval),
       max_retry:      Config.get(:subscriber, :max_retry),

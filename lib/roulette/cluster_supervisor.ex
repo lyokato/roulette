@@ -6,8 +6,6 @@ defmodule Roulette.ClusterSupervisor do
     %{
       id: Keyword.fetch!(opts, :name),
       start: {__MODULE__, :start_link, [opts]},
-      restart: :permanent,
-      shutdown: 5_000,
       type: :supervisor
     }
   end

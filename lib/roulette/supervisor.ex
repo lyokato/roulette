@@ -54,8 +54,38 @@ defmodule Roulette.Supervisor do
 
     end)
 
+    FastGlobal.put(:roulette_use_reserved_ring, false)
+
     if role != :publisher do
-      [{SubscriptionSupervisor.Default, []}] ++ cluster_supervisors
+
+      reserved_ring = Config.get(:connection, :reserved_ring)
+
+      if length(reserved_ring) > 0 do
+
+        FastGlobal.put(:roulette_use_reserved_ring, true)
+
+        ClusterChooser.Reserved.init(reserved_ring)
+
+
+        reserved_cluster_supervisors =
+          reserved_ring |> Enum.map(fn target ->
+
+           cluster_supervisor(:subscriber,
+                              target,
+                              pool_size,
+                              retry_interval)
+
+          end)
+
+        [{SubscriptionSupervisor.Default, []},
+         {SubscriptionSupervisor.Reserved, []}] ++
+           cluster_supervisors ++ reserved_cluster_supervisors
+
+      else
+
+        [{SubscriptionSupervisor.Default, []}] ++ cluster_supervisors
+
+      end
     else
       cluster_supervisors
     end
@@ -65,6 +95,7 @@ defmodule Roulette.Supervisor do
   defp cluster_supervisor(role, target, pool_size, retry_interval) do
 
     {host, port} = Config.get_host_and_port(target)
+
     name = AtomGenerator.cluster_supervisor(role, host, port)
     pool = AtomGenerator.cluster_pool(role, host, port)
 

@@ -11,7 +11,11 @@ defmodule Roulette.SubscriptionSupervisor.Reserved do
   end
 
   def start_child(pool, consumer, topic) do
-    SubscriptionSupervisor.start_child(__MODULE__, pool, consumer, topic)
+    SubscriptionSupervisor.start_child(__MODULE__,
+                                       pool,
+                                       consumer,
+                                       topic,
+                                       :reserved)
   end
 
   def terminate_child(pid) do
