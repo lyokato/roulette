@@ -2,6 +2,8 @@ defmodule Roulette do
 
   @moduledoc """
   Documentation for Roulette.
+
+  See also https://github.com/lyokato/roulette
   """
 
   def child_spec(), do: child_spec([])

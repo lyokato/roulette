@@ -39,7 +39,7 @@ children = [
   {Roulette, []},
   ...
 ]
-Supervisor.start_link(children, )
+Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 Server process in your app.
@@ -74,4 +74,11 @@ Anywhere else you want to publish message in your app.
 Roulette.pub("foobar", data)
 ```
 
+## Premised gnatsd Network Architecture
+
+
+## Full Configuration Description
+
+
+## Publish/Subscribe detailed behaviour
 
