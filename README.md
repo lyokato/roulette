@@ -37,7 +37,7 @@ In your application bootstrap
 ```elixir
 children = [
   {Roulette, []},
-  ...
+  # ... setup other workers and supervisors
 ]
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
@@ -53,9 +53,10 @@ defmodule YourSession do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  def init(_opts) do
-    Roulette.sub("foobar")
-    {:ok, {}}
+  def init(opts) do
+    username = Keyword.fetch!(opts, :username)
+    Roulette.sub(username)
+    {:ok, %{username: username}}
   end
 
   def handle_info({:pubsub_message, topic, msg, pid}, state) do
@@ -66,6 +67,8 @@ defmodule YourSession do
   def terminate(reason, state) do
     :ok
   end
+
+end
 ```
 
 Anywhere else you want to publish message in your app.
@@ -77,8 +80,16 @@ Roulette.pub("foobar", data)
 ## Premised gnatsd Network Architecture
 
 
+
 ## Full Configuration Description
 
 
+## Setup Supervisor
+
+
 ## Publish/Subscribe detailed behaviour
+
+
+## Ring Update: Take a service downtime or 3-phase deploy with Reserved-Ring
+
 
