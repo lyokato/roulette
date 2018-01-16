@@ -1,5 +1,9 @@
 defmodule Roulette.Publisher do
 
+  @moduledoc ~S"""
+  Publisher module. this provides just a single function, `pub/2`.
+  """
+
   require Logger
 
   alias Roulette.AtomGenerator
@@ -7,7 +11,36 @@ defmodule Roulette.Publisher do
   alias Roulette.Config
   alias Roulette.ConnectionKeeper
 
-  @spec pub(String.t, any) :: :ok | :error
+  @doc ~S"""
+  Publish a message-data with a `topic`
+
+  ## Usage
+
+      username = "foobar"
+      data = Poison.encode!(%{"content" => "Hello!"})
+
+      case Roulette.Publisher.pub(foobar, data) do
+        :ok    -> handle_success()
+        :error -> handle_error()
+      end
+
+
+  Internallly, `roulette` chooses a proper gnatsd-cluster for the `topic`.
+  For this choice, `consistent-hashing` is utilized.
+
+  Then, a process-pool for the cluster pick a GenServer process which keeps
+  connection to gnatsd-server. Within this connection, `roulette` tries to send a
+  `PUBLISH` message.
+
+  If it failed, automatically retry until it succeeds or reached to the
+  limit number that you set on your configuration as `max_retry`.
+
+  """
+
+  @spec pub(topic :: String.t,
+            data  :: binary)
+    :: :ok | :error
+
   def pub(topic, data) do
     max_retry = Config.get(:publisher, :max_retry)
     choose_pool(topic)
@@ -58,7 +91,7 @@ defmodule Roulette.Publisher do
       Gnat.pub(gnat, topic, data)
     catch
       :exit, e ->
-        Logger.warn "<Roulette.Subscription> failed to subscribe: #{inspect e}"
+        Logger.warn "<Roulette.Subscription> failed to pub: #{inspect e}"
         {:error, :timeout}
     end
   end
