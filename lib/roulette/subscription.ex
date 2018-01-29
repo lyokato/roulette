@@ -141,6 +141,7 @@ defmodule Roulette.Subscription do
     try do
       Gnat.sub(conn, self(), topic)
     catch
+      # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
         Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe: #{inspect e}"
         {:error, :timeout}
@@ -151,11 +152,11 @@ defmodule Roulette.Subscription do
     try do
       Gnat.unsub(conn, ref)
     catch
+      # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
         Logger.error "<Roulette.Subscription:#{inspect self()}> failed to unsubscribe: #{inspect e}"
         {:error, :timeout}
     end
   end
-
 
 end

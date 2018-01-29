@@ -12,6 +12,7 @@ defmodule Roulette.ConnectionKeeper do
   defstruct host: "",
             port: nil,
             gnat: nil,
+            ping_interval: 0,
             retry_interval: 0
 
   def start_link(opts) do
@@ -35,6 +36,7 @@ defmodule Roulette.ConnectionKeeper do
     case Gnat.start_link(gnat_opts) do
 
       {:ok, gnat} ->
+        Process.send_after(self(), :ping, state.ping_interval)
         {:noreply, %{state|gnat: gnat}}
 
       other ->
@@ -43,6 +45,29 @@ defmodule Roulette.ConnectionKeeper do
         {:noreply, %{state| gnat: nil}}
 
     end
+  end
+
+  def handle_info(:ping, state) do
+
+    if state.gnat != nil do
+
+      # send PING and wait for PONG
+      case do_gnat_ping(state.gnat) do
+
+        :ok ->
+          # OK, got PONG in time. Check again after interval.
+          Process.send_after(self(), :ping, state.ping_interval)
+
+        _other ->
+          # if it takes 3_000 milli seconds (3_000 is hard-coded in Gnat)
+          Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection."
+          Gnat.stop(state.gnat)
+
+      end
+
+    end
+
+    {:noreply, state}
   end
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
@@ -70,15 +95,29 @@ defmodule Roulette.ConnectionKeeper do
 
     host = Keyword.fetch!(opts, :host)
     port = Keyword.fetch!(opts, :port)
+
     retry_interval = Keyword.fetch!(opts, :retry_interval)
+    ping_interval  = Keyword.fetch!(opts, :ping_interval)
 
     %__MODULE__{
       host: host,
       port: port,
       gnat: nil,
+      ping_interval:  ping_interval,
       retry_interval: retry_interval
     }
 
+  end
+
+  defp do_gnat_ping(conn) do
+    try do
+      Gnat.ping(conn)
+    catch
+      # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
+      :exit, e ->
+        Logger.error "<Roulette.Connection:#{inspect self()}> failed to ping: #{inspect e}"
+        {:error, :timeout}
+    end
   end
 
 end

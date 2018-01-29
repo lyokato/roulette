@@ -28,11 +28,11 @@ defmodule Roulette.Publisher do
   Internallly, `roulette` chooses a proper gnatsd-cluster for the `topic`.
   For this choice, `consistent-hashing` is utilized.
 
-  Then, a process-pool for the cluster pick a GenServer process which keeps
-  connection to gnatsd-server. Within this connection, `roulette` tries to send a
-  `PUBLISH` message.
+  Then, a process-pool for the cluster picks a GenServer process which keeps
+  connection to gnatsd-server. Within this connection, `roulette` tries to send
+  `PUBLISH` messages.
 
-  If it failed, automatically retry until it succeeds or reached to the
+  If it failed, automatically retry until it succeeds or reaches to the
   limit number that you set on your configuration as `max_retry`.
 
   """
@@ -90,6 +90,7 @@ defmodule Roulette.Publisher do
     try do
       Gnat.pub(gnat, topic, data)
     catch
+      # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
         Logger.warn "<Roulette.Subscription> failed to pub: #{inspect e}"
         {:error, :timeout}
