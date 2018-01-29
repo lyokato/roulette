@@ -5,7 +5,6 @@ config :roulette, :connection,
     [host: "localhost", port: 4222],
   ],
   retry_interval: 1_000,
-  max_retry: 5,
   pool_size: 5,
   gnat: %{
     connection_timeout: 5_000,
