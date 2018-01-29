@@ -63,14 +63,14 @@ defmodule Roulette.Subscriber do
   Internallly, `roulette` chooses a proper gnatsd-cluster for the `topic`.
   For this choice, `consistent-hashing` is utilized.
 
-  Then, a process-pool for the cluster pick a GenServer process which keeps
-  connection to gnatsd-server. Within this connection, `roulette` tries to send a
-  `SUBSCRIBE` message.
+  Then, a process-pool for the cluster picks a GenServer process which keeps
+  connection to gnatsd-server. Within this connection, `roulette` tries to send
+  `SUBSCRIBE` messages.
 
-  If it failed, automatically retry until it succeeds or reached to the
+  If it failed, automatically retry until it succeeds or reaches to the
   limit number that you set on your configuration as `max_retry`.
 
-  After it succeeds, you can wait a data that someone `Publish` with this `topic`.
+  After it succeeds, you can wait for a data that someone `Publish` with this `topic`.
 
   If the caller process is GenServer, you should write `handle_info/2`
   for this purpose like following.
@@ -139,7 +139,7 @@ defmodule Roulette.Subscriber do
   But the truth, if you want to `unsub` when the process `terminate`,
   You don't need to call `unsub`. Because the subscription process is
   monitoring your process, and when it'll be down, subscription process
-  starts to die togather.
+  automatically starts to die togather.
   """
 
   @spec unsub(topic :: String.t) :: :ok

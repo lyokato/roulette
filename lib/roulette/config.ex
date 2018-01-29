@@ -20,7 +20,7 @@ defmodule Roulette.Config do
       ring: [],
       reserved_ring: [],
       retry_interval: 1_000,
-      max_retry: 5,
+      ping_interval: 5_000,
       pool_size: 5,
       gnat: %{
         connection_timeout: 5_000,
@@ -33,11 +33,11 @@ defmodule Roulette.Config do
   @gnat_config_keys [:connection_timeout, :tls, :ssl_opts, :tcp_opts]
 
   @default_publisher_values [
-      max_retry: 5
+      max_retry: 10
     ]
 
   @default_subscriber_values [
-      max_retry: 5,
+      max_retry: 10,
       retry_interval: 2_000,
       restart: :temporary
     ]
