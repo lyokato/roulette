@@ -79,17 +79,17 @@ Roulette.pub("foobar", data)
 
 ## Premised gnatsd Network Architecture
 
-gnatsd supports cluster-mode. This works with full-mesh and one-hop to sync events.
+gnatsd supports cluster-mode. This works with full-mesh and one-hop messaging system to sync events.
 
 [image]
 
-Roulette assumes that you put a load-balancer like AWS-NBL in front of for each gnatsd-clusters.
+Roulette assumes that you put a load-balancer like AWS-NBL in front of each gnatsd-clusters.
 
 Roulette doesn't have a responsiblity for health-check and load-balancing between gnatsd-servers
 exists in a single gnatsd-cluster.
 It's load-balancer's responsibility.
 
-Roulette connects to for each backend gnatsd-server through load-balancers,
+Roulette connects to each backend gnatsd-server through load-balancers,
 and doesn't mind which endpoint to connect to.
 
 [image]
