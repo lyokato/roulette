@@ -9,7 +9,7 @@ defmodule Roulette.Publisher do
   alias Roulette.AtomGenerator
   alias Roulette.ClusterChooser
   alias Roulette.Config
-  alias Roulette.ConnectionKeeper
+  alias Roulette.Connection
 
   @doc ~S"""
   Publish a message-data with a `topic`
@@ -42,9 +42,12 @@ defmodule Roulette.Publisher do
     :: :ok | :error
 
   def pub(topic, data) do
+
     max_retry = Config.get(:publisher, :max_retry)
+    attempts  = 0
+
     choose_pool(topic)
-    |> pub_on_cluster(topic, data, 0, max_retry)
+    |> pub_on_cluster(topic, data, attempts, max_retry)
   end
 
   defp choose_pool(topic) do
@@ -53,29 +56,37 @@ defmodule Roulette.Publisher do
     AtomGenerator.cluster_pool(:publisher, host, port)
   end
 
-  defp pub_on_cluster(pool, topic, data, retry, max_retry) do
-    :poolboy.transaction(pool, fn conn_keeper ->
+  defp pub_on_cluster(pool, topic, data, attempts, max_retry) do
 
-      case ConnectionKeeper.connection(conn_keeper) do
+    case do_pub_on_cluster(pool, topic, data) do
+
+      :ok -> :ok
+
+      :error when attempts < max_retry ->
+        pub_on_cluster(pool, topic, data, attempts, max_retry)
+
+      :error ->
+        Logger.error "<Roulette.Publisher> failed to pub eventually"
+        :error
+
+    end
+  end
+
+  defp do_pub_on_cluster(pool, topic, data) do
+    :poolboy.transaction(pool, fn conn ->
+
+      case Connection.get(conn) do
 
         {:ok, gnat} ->
           case do_gnat_pub(gnat, topic, data) do
 
             :ok -> :ok
 
-            other when retry < max_retry ->
-              Logger.warn "<Roulette.Publisher> failed to pub: #{inspect other}, retry."
-              pub_on_cluster(pool, topic, data, retry + 1, max_retry)
-
             other ->
-              Logger.error "<Roulette.Publisher> failed to pub: #{inspect other}"
+              Logger.warn "<Roulette.Publisher> failed to pub: #{inspect other}"
               :error
 
           end
-
-        {:error, :not_found} when retry < max_retry ->
-          Logger.warn "<Roulette.Publisher> connection lost, try to find other."
-          pub_on_cluster(pool, topic, data, retry + 1, max_retry)
 
         {:error, :not_found} ->
           Logger.error "<Roulette.Publisher> connection lost"
