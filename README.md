@@ -10,7 +10,7 @@ by adding `roulette` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:roulette, "~> 0.2.0"}
+    {:roulette, "~> 0.2.1"}
   ]
 end
 ```
@@ -79,20 +79,20 @@ Roulette.pub("foobar", data)
 
 ## Premised gnatsd Network Architecture
 
-gnatsd supports cluster-mode. This works with full-mesh and one-hop to sync events.
+gnatsd supports cluster-mode. This works with full-mesh and one-hop messaging system to sync events.
 
 [image]
 
-Roulette assumes that you put a load-balancer like AWS-NBL in front of for each gnatsd-clusters.
+Roulette assumes that you put a load-balancer like AWS-NBL in front of each gnatsd-clusters.
 
 Roulette doesn't have a responsiblity for health-check and load-balancing between gnatsd-servers
 exists in a single gnatsd-cluster.
-It's load-balancer's responsibility.
-
-Roulette connects to for each backend gnatsd-server through load-balancers,
-and doesn't mind which endpoint to connect to.
+Roulette assumes that It's load-balancers' responsibility.
 
 [image]
+
+Roulette connects to each backend gnatsd-server through load-balancers,
+and doesn't mind which endpoint to connect to.
 
 However if your application servers send `PUBLISH` so much,
 it'll cause troubles eventuallly.
@@ -107,7 +107,7 @@ Setup multiple gnatsd-cluster beforehand, and when your app sends
 
 ## Full Configuration Description
 
-minimum configuration example,
+Here is a minimum configuration example,
 You must setup `ring` list.
 Put your load-balancers' hostname into it.
 
@@ -120,7 +120,7 @@ config :roulette, :connection,
 
 ```
 
-Or else, you can keyword list for each host.
+Or else, you can use keyword list for each host.
 
 ```elixir
 config :roulette, :connection,
@@ -133,7 +133,6 @@ config :roulette, :connection,
 
 If there is no `port` setting, 4222 is set by defaut.
 
-- retry_interval: when found disconnection, or establish-connection-falure, automatically try to re-connect, after this interval (milli seconds). 1_000 is set by default.
 - ping_interval: after a connection established, repeatedly send PING message with this interval (milli seconds). 5_000 is set by default.
 - pool_size: how many connections for each gnatsd-cluster. 5 is set by default.
 
@@ -145,7 +144,6 @@ config :roulette, :connection,
     [host: "gnatsd-cluster1.example.org", port: 4222],
     [host: "gnatsd-cluster2.example.org", port: 4222]
   ],
-  retry_interval: 2_000,
   ping_interval: 1_000,
   pool_size: 10
 
@@ -153,9 +151,30 @@ config :roulette, :connection,
 
 And you also can set configuration for each role (`Publisher` and `Subscriber`)
 
-[TODO publisher config description here]
+### Publisher specific configuration
 
-[TODO subscriber config description here]
+Here is a default setting.
+
+```
+config :roulette, :publisher,
+  max_retry: 10
+```
+
+### Subscriber specific configuration
+
+Here is a default setting.
+
+```
+config :roulette, :publisher,
+  max_retry: 10,
+  restart: :temporary
+```
+
+#### max_retry
+#### restart
+
+This setting is used only when you set :permanent for :restart.
+
 
 ### Gnat setting
 

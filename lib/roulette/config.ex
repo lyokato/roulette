@@ -19,7 +19,6 @@ defmodule Roulette.Config do
   @default_connection_values [
       ring: [],
       reserved_ring: [],
-      retry_interval: 1_000,
       ping_interval: 5_000,
       pool_size: 5,
       gnat: %{

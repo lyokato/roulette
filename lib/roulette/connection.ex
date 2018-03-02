@@ -1,31 +1,28 @@
-defmodule Roulette.ConnectionKeeper do
+defmodule Roulette.Connection do
 
   require Logger
 
   use GenServer
 
-  @spec connection(pid) :: {:ok, pid} | {:error, :not_found}
-  def connection(pid) do
+  @spec get(pid) :: {:ok, pid} | {:error, :not_found}
+  def get(pid) do
     GenServer.call(pid, :get_connection)
   end
 
   defstruct host: "",
             port: nil,
             gnat: nil,
-            ping_interval: 0,
-            retry_interval: 0
+            ping_interval: 0
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
 
   def init(opts) do
-    Process.flag(:trap_exit, true)
-    send self(), :connect
-    {:ok, new(opts)}
-  end
 
-  def handle_info(:connect, state) do
+    Process.flag(:trap_exit, true)
+
+    state = new(opts)
 
     gnat_opts =
       Roulette.Config.merge_gnat_config(%{
@@ -37,14 +34,14 @@ defmodule Roulette.ConnectionKeeper do
 
       {:ok, gnat} ->
         Process.send_after(self(), :ping, state.ping_interval)
-        {:noreply, %{state|gnat: gnat}}
+        {:ok, %{state|gnat: gnat}}
 
       other ->
         Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect - #{state.host}:#{state.port} #{inspect other}"
-        Process.send_after(self(), :connect, state.retry_interval)
-        {:noreply, %{state| gnat: nil}}
+        {:stop, :shutdown}
 
     end
+
   end
 
   def handle_info(:ping, state) do
@@ -71,12 +68,11 @@ defmodule Roulette.ConnectionKeeper do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
-    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected - #{state.host}:#{state.port}, try to reconnect"
-    Process.send_after(self(), :connect, state.retry_interval)
-    {:noreply, %{state| gnat: nil}}
+    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected - #{state.host}:#{state.port}, shutdown."
+    {:stop, :shutdown, state}
   end
   def handle_info({:EXIT, _pid, _reason}, state) do
-    {:noreply, %{state| gnat: nil}}
+    {:stop, :shutdown, state}
   end
   def handle_info(_info, state) do
     {:noreply, state}
@@ -96,7 +92,6 @@ defmodule Roulette.ConnectionKeeper do
     host = Keyword.fetch!(opts, :host)
     port = Keyword.fetch!(opts, :port)
 
-    retry_interval = Keyword.fetch!(opts, :retry_interval)
     ping_interval  = Keyword.fetch!(opts, :ping_interval)
 
     %__MODULE__{
@@ -104,7 +99,6 @@ defmodule Roulette.ConnectionKeeper do
       port: port,
       gnat: nil,
       ping_interval:  ping_interval,
-      retry_interval: retry_interval
     }
 
   end
@@ -115,7 +109,7 @@ defmodule Roulette.ConnectionKeeper do
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
-        Logger.error "<Roulette.Connection:#{inspect self()}> failed to ping: #{inspect e}"
+        Logger.error "<Roulette.Connection:#{inspect self()}> failed to PING: #{inspect e}"
         {:error, :timeout}
     end
   end

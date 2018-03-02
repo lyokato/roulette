@@ -38,9 +38,8 @@ defmodule Roulette.Supervisor do
       :subscriber -> [:subscriber]
     end
 
-    pool_size      = Config.get(:connection, :pool_size)
-    retry_interval = Config.get(:connection, :retry_interval)
-    ping_interval  = Config.get(:connection, :ping_interval)
+    pool_size     = Config.get(:connection, :pool_size)
+    ping_interval = Config.get(:connection, :ping_interval)
 
     cluster_supervisors = enabled_roles |> Enum.flat_map(fn role ->
 
@@ -49,7 +48,6 @@ defmodule Roulette.Supervisor do
        cluster_supervisor(role,
                           target,
                           pool_size,
-                          retry_interval,
                           ping_interval)
 
       end)
@@ -75,7 +73,6 @@ defmodule Roulette.Supervisor do
            cluster_supervisor(:subscriber,
                               target,
                               pool_size,
-                              retry_interval,
                               ping_interval)
 
           end)
@@ -95,7 +92,7 @@ defmodule Roulette.Supervisor do
 
   end
 
-  defp cluster_supervisor(role, target, pool_size, retry_interval, ping_interval) do
+  defp cluster_supervisor(role, target, pool_size, ping_interval) do
 
     {host, port} = Config.get_host_and_port(target)
 
@@ -106,7 +103,6 @@ defmodule Roulette.Supervisor do
       [name:           name,
        host:           host,
        port:           port,
-       retry_interval: retry_interval,
        ping_interval:  ping_interval,
        pool_name:      pool,
        pool_size:      pool_size]}
