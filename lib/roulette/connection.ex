@@ -44,27 +44,6 @@ defmodule Roulette.Connection do
 
   end
 
-  def handle_info(:connect, state) do
-
-    gnat_opts =
-      Roulette.Config.merge_gnat_config(%{
-        host: state.host,
-        port: state.port
-      })
-
-    case Gnat.start_link(gnat_opts) do
-
-      {:ok, gnat} ->
-        Process.send_after(self(), :ping, state.ping_interval)
-        {:noreply, %{state|gnat: gnat}}
-
-      other ->
-        Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect - #{state.host}:#{state.port} #{inspect other}"
-        {:stop, :shutdown, state}
-
-    end
-  end
-
   def handle_info(:ping, state) do
 
     if state.gnat != nil do
@@ -130,7 +109,7 @@ defmodule Roulette.Connection do
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
-        Logger.error "<Roulette.Connection:#{inspect self()}> failed to ping: #{inspect e}"
+        Logger.error "<Roulette.Connection:#{inspect self()}> failed to PING: #{inspect e}"
         {:error, :timeout}
     end
   end
