@@ -63,7 +63,7 @@ defmodule Roulette.Publisher do
       :ok -> :ok
 
       :error when attempts < max_retry ->
-        pub_on_cluster(pool, topic, data, attempts, max_retry)
+        pub_on_cluster(pool, topic, data, attempts + 1, max_retry)
 
       :error ->
         Logger.error "<Roulette.Publisher> failed to pub eventually"
