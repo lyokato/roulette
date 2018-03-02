@@ -1,9 +1,9 @@
 defmodule Roulette do
 
   @moduledoc """
-  Documentation for Roulette.
+  Roulette is a HashRing-ed gnatsd-cluster client library
 
-  See also https://github.com/lyokato/roulette
+  See https://github.com/lyokato/roulette
   """
 
   def child_spec(), do: child_spec([])

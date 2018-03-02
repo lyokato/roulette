@@ -22,31 +22,28 @@ defmodule Roulette.ClusterSupervisor do
     port     = Keyword.fetch!(opts, :port)
     size     = Keyword.fetch!(opts, :pool_size)
 
-    retry_interval = Keyword.fetch!(opts, :retry_interval)
     ping_interval  = Keyword.fetch!(opts, :ping_interval)
 
     children(name,
              host,
              port,
-             retry_interval,
              ping_interval,
              size)
     |> Supervisor.init(strategy: :one_for_one)
 
   end
 
-  defp children(name, host, port, retry_interval, ping_interval, size) do
+  defp children(name, host, port, ping_interval, size) do
     [:poolboy.child_spec(name,
       pool_opts(name, size),
       [host:           host,
        port:           port,
-       ping_interval:  ping_interval,
-       retry_interval: retry_interval])]
+       ping_interval:  ping_interval])]
   end
 
   defp pool_opts(name, size) do
     [{:name, {:local, name}},
-     {:worker_module, Roulette.ConnectionKeeper},
+     {:worker_module, Roulette.Connection},
      {:size, size},
      {:max_overflow, size}]
   end

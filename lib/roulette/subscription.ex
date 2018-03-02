@@ -4,7 +4,7 @@ defmodule Roulette.Subscription do
 
   use GenServer
 
-  alias Roulette.ConnectionKeeper
+  alias Roulette.Connection
   alias Roulette.Config
 
   @type restart_strategy :: :temporary | :permanent
@@ -100,11 +100,11 @@ defmodule Roulette.Subscription do
     }
   end
 
-  defp setup(state, retry_count, max_retry) do
+  defp setup(state, attempts, max_retry) do
 
-    state.pool |> :poolboy.transaction(fn conn_keeper ->
+    state.pool |> :poolboy.transaction(fn conn ->
 
-      case ConnectionKeeper.connection(conn_keeper) do
+      case Connection.get(conn) do
 
         {:ok, conn} ->
           case do_gnat_sub(conn, state.topic) do
@@ -113,9 +113,9 @@ defmodule Roulette.Subscription do
               Process.monitor(conn)
               {:noreply, %{state | ref: ref, gnat: conn}}
 
-            other when retry_count < max_retry ->
+            other when attempts < max_retry ->
               Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe on gnat: #{inspect other}"
-              setup(state, retry_count + 1, max_retry)
+              setup(state, attempts + 1, max_retry)
 
             other ->
               Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe on gnat: #{inspect other}"
@@ -123,9 +123,9 @@ defmodule Roulette.Subscription do
 
           end
 
-        {:error, :disconnected} when retry_count < max_retry ->
+        {:error, :disconnected} when attempts < max_retry ->
           Logger.error "<Roulette.Subscription:#{inspect self()}> couldn't checkout gnat connection"
-          setup(state, retry_count + 1, max_retry)
+          setup(state, attempts + 1, max_retry)
 
         {:error, :disconnected} ->
           Logger.error "<Roulette.Subscription:#{inspect self()}> couldn't checkout gnat connection"
