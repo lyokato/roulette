@@ -4,7 +4,7 @@ defmodule Roulette.Mixfile do
   def project do
     [
       app: :roulette,
-      version: "0.2.4",
+      version: "0.2.5",
       elixir: "~> 1.5",
       package: package(),
       start_permanent: Mix.env == :prod,
