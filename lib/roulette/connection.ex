@@ -24,6 +24,14 @@ defmodule Roulette.Connection do
 
     state = new(opts)
 
+    send self(), :connect
+
+    {:ok, state}
+
+  end
+
+  def handle_info(:connect, state) do
+
     gnat_opts =
       Roulette.Config.merge_gnat_config(%{
         host: state.host,
@@ -38,7 +46,7 @@ defmodule Roulette.Connection do
 
       other ->
         Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect - #{state.host}:#{state.port} #{inspect other}"
-        {:stop, :shutdown}
+        {:stop, :shutdown, state}
 
     end
 
