@@ -42,7 +42,7 @@ defmodule Roulette.Connection do
 
       {:ok, gnat} ->
         Process.send_after(self(), :ping, state.ping_interval)
-        {:ok, %{state|gnat: gnat}}
+        {:noreply, %{state|gnat: gnat}}
 
       other ->
         Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect - #{state.host}:#{state.port} #{inspect other}"
