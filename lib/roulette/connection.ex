@@ -4,6 +4,8 @@ defmodule Roulette.Connection do
 
   use GenServer
 
+  @reconnection_interval 100
+
   @spec get(pid) :: {:ok, pid} | {:error, :not_found}
   def get(pid) do
     GenServer.call(pid, :get_connection)
@@ -76,8 +78,9 @@ defmodule Roulette.Connection do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
-    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected - #{state.host}:#{state.port}, shutdown."
-    {:stop, :shutdown, state}
+    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected - #{state.host}:#{state.port}, try to reconnect."
+    Process.send_after(self(), :connect, @reconnection_interval)
+    {:noreply, %{state| gnat: nil}}
   end
   def handle_info({:EXIT, _pid, _reason}, state) do
     {:stop, :shutdown, state}
