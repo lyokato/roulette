@@ -45,6 +45,7 @@ defmodule Roulette.ClusterSupervisor do
     [{:name, {:local, name}},
      {:worker_module, Roulette.Connection},
      {:size, size},
+     {:strategy, :fifo},
      {:max_overflow, size}]
   end
 
