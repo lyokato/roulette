@@ -10,7 +10,7 @@ by adding `roulette` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:roulette, "~> 0.2.5"}
+    {:roulette, "~> 0.2.6"}
   ]
 end
 ```
