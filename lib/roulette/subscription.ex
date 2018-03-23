@@ -88,7 +88,7 @@ defmodule Roulette.Subscription do
     {:noreply, state}
   end
 
-  def terminate(_reason, %{ref: nil}) do
+  def terminate(_reason, %{ref: nil}=state) do
     Logger.debug "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
     :ok
   end
