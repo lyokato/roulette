@@ -55,14 +55,17 @@ defmodule Roulette.Subscription do
   def handle_info(:setup, state), do: setup(state, 0, state.max_retry)
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{gnat: pid, restart: :temporary}=state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> DOWN: gnat process"
     {:stop, :shutdown, %{state| gnat: nil, ref: nil}}
   end
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{gnat: pid, restart: :permanent}=state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> DOWN: gnat process, start to reconnect"
     Process.send_after(self(), :setup, state.retry_interval)
     {:noreply, %{state| gnat: nil, ref: nil}}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{consumer: pid}=state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> DOWN: consumer process"
     {:stop, :shutdown, state}
   end
 
@@ -72,16 +75,24 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{consumer: pid}=state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> EXIT: consumer process"
     {:stop, :shutdown, state}
   end
   def handle_info({:EXIT, _pid, _reason}, state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> EXIT"
     {:stop, :shutdown, state}
+  end
+
+  def handle_info(info, state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> unsupported info: #{inspect info}"
+    {:noreply, state}
   end
 
   def terminate(_reason, %{ref: nil}) do
     :ok
   end
   def terminate(_reason, state) do
+    Logger.info "<Roulette.Subscription:#{inspect self()}> terminate #{inspect state}"
     do_gnat_unsub(state.gnat, state.ref)
     :ok
   end
