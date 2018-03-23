@@ -102,34 +102,36 @@ defmodule Roulette.Subscription do
 
   defp setup(state, attempts, max_retry) do
 
+    case do_setup(state) do
+
+      {:ok, gnat, ref} ->
+        Process.monitor(gnat)
+        {:noreply, %{state | ref: ref, gnat: gnat}}
+
+      other when attempts < max_retry ->
+        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to setup subscription: #{inspect other}"
+        setup(state, attempts + 1, max_retry)
+
+      other ->
+        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to setup subscription: #{inspect other}"
+        {:stop, :shutdown, state}
+    end
+
+  end
+
+  defp do_setup(state) do
+
     state.pool |> :poolboy.transaction(fn conn ->
 
       case Connection.get(conn) do
 
-        {:ok, conn} ->
-          case do_gnat_sub(conn, state.topic) do
-
-            {:ok, ref} ->
-              Process.monitor(conn)
-              {:noreply, %{state | ref: ref, gnat: conn}}
-
-            other when attempts < max_retry ->
-              Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe on gnat: #{inspect other}"
-              setup(state, attempts + 1, max_retry)
-
-            other ->
-              Logger.error "<Roulette.Subscription:#{inspect self()}> failed to subscribe on gnat: #{inspect other}"
-              {:stop, :shutdown, state}
-
+        {:ok, gnat} ->
+          case do_gnat_sub(gnat, state.topic) do
+            {:ok, ref}       -> {:ok, gnat, ref}
+            {:error ,reason} -> {:error, reason}
           end
 
-        {:error, :disconnected} when attempts < max_retry ->
-          Logger.error "<Roulette.Subscription:#{inspect self()}> couldn't checkout gnat connection"
-          setup(state, attempts + 1, max_retry)
-
-        {:error, :disconnected} ->
-          Logger.error "<Roulette.Subscription:#{inspect self()}> couldn't checkout gnat connection"
-          {:stop, :shutdown, state}
+        {:error, :not_found} -> {:error, :not_found}
 
       end
 
@@ -137,9 +139,9 @@ defmodule Roulette.Subscription do
 
   end
 
-  defp do_gnat_sub(conn, topic) do
+  defp do_gnat_sub(gnat, topic) do
     try do
-      Gnat.sub(conn, self(), topic)
+      Gnat.sub(gnat, self(), topic)
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
@@ -148,9 +150,9 @@ defmodule Roulette.Subscription do
     end
   end
 
-  defp do_gnat_unsub(conn, ref) do
+  defp do_gnat_unsub(gnat, ref) do
     try do
-      Gnat.unsub(conn, ref)
+      Gnat.unsub(gnat, ref)
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
