@@ -77,13 +77,14 @@ defmodule Roulette.Supervisor do
 
           end)
 
-        [{SubscriptionSupervisor.Default, []},
-         {SubscriptionSupervisor.Reserved, []}] ++
-           cluster_supervisors ++ reserved_cluster_supervisors
+        cluster_supervisors
+          ++ reserved_cluster_supervisors
+          ++ [{SubscriptionSupervisor.Default,  []},
+              {SubscriptionSupervisor.Reserved, []}]
 
       else
 
-        [{SubscriptionSupervisor.Default, []}] ++ cluster_supervisors
+        cluster_supervisors ++ [{SubscriptionSupervisor.Default, []}]
 
       end
     else
