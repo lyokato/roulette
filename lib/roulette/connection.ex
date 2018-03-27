@@ -43,6 +43,7 @@ defmodule Roulette.Connection do
     case Gnat.start_link(gnat_opts) do
 
       {:ok, gnat} ->
+        Logger.info "<Roulette.Connection:#{inspect self()}> link to gnat(#{inspect gnat})."
         Process.send_after(self(), :ping, state.ping_interval)
         {:noreply, %{state|gnat: gnat}}
 
@@ -78,14 +79,16 @@ defmodule Roulette.Connection do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
-    Logger.error "<Roulette.Connection:#{inspect self()}> seems to be disconnected - #{state.host}:#{state.port}, try to reconnect."
+    Logger.warn "<Roulette.Connection:#{inspect self()}> seems to be disconnected - gnat(#{inspect pid}:#{state.host}:#{state.port}), try to reconnect."
     Process.send_after(self(), :connect, @reconnection_interval)
     {:noreply, %{state| gnat: nil}}
   end
-  def handle_info({:EXIT, _pid, _reason}, state) do
+  def handle_info({:EXIT, pid, _reason}, state) do
+    Logger.info "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
     {:stop, :shutdown, state}
   end
-  def handle_info(_info, state) do
+  def handle_info(info, state) do
+    Logger.info "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
     {:noreply, state}
   end
 
@@ -96,7 +99,10 @@ defmodule Roulette.Connection do
     {:reply, {:ok, gnat}, state}
   end
 
-  def terminate(_reason, _state), do: :ok
+  def terminate(reason, _state) do
+    Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+    :ok
+  end
 
   defp new(opts) do
 
