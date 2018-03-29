@@ -40,10 +40,12 @@ defmodule Roulette.Connection do
         port: state.port
       })
 
+    Logger.debug "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect gnat_opts}"
+
     case Gnat.start_link(gnat_opts) do
 
       {:ok, gnat} ->
-        Logger.info "<Roulette.Connection:#{inspect self()}> link to gnat(#{inspect gnat})."
+        Logger.debug "<Roulette.Connection:#{inspect self()}> linked to gnat(#{inspect gnat})."
         Process.send_after(self(), :ping, state.ping_interval)
         {:noreply, %{state|gnat: gnat}}
 
@@ -58,6 +60,8 @@ defmodule Roulette.Connection do
   def handle_info(:ping, state) do
 
     if state.gnat != nil do
+
+      Logger.debug "<Roulette.Connection:#{inspect self()}> PING"
 
       # send PING and wait for PONG
       case do_gnat_ping(state.gnat) do
@@ -84,11 +88,11 @@ defmodule Roulette.Connection do
     {:noreply, %{state| gnat: nil}}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    Logger.info "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
+    Logger.debug "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
     {:stop, :shutdown, state}
   end
   def handle_info(info, state) do
-    Logger.info "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
+    Logger.debug "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
     {:noreply, state}
   end
 
@@ -99,8 +103,14 @@ defmodule Roulette.Connection do
     {:reply, {:ok, gnat}, state}
   end
 
-  def terminate(reason, _state) do
+  def terminate(reason, %{gnat: nil}) do
     Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+    :ok
+  end
+  def terminate(reason, %{gnat: gnat}) do
+    Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+    Logger.debug "<Roulette.Connection:#{inspect self()}> stop gnat"
+    Gnat.stop(gnat)
     :ok
   end
 
