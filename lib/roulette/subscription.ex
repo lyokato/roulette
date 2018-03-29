@@ -54,18 +54,21 @@ defmodule Roulette.Subscription do
 
   def handle_info(:setup, state), do: setup(state, 0, state.max_retry)
 
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{gnat: pid, restart: :temporary}=state) do
-    Logger.info "<Roulette.Subscription:#{inspect self()}> DOWN(gnat:#{inspect pid}) start to shutdown"
+  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{gnat: pid, restart: :temporary}=state) do
+    Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(gnat:#{inspect pid}) start to shutdown"
+    Process.demonitor(monitor_ref)
     {:stop, :shutdown, %{state| gnat: nil, ref: nil}}
   end
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{gnat: pid, restart: :permanent}=state) do
-    Logger.info "<Roulette.Subscription:#{inspect self()}> DOWN(gnat:#{inspect pid}) start to reconnect"
+  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{gnat: pid, restart: :permanent}=state) do
+    Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(gnat:#{inspect pid}) start to reconnect"
+    Process.demonitor(monitor_ref)
     Process.send_after(self(), :setup, state.retry_interval)
     {:noreply, %{state| gnat: nil, ref: nil}}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{consumer: pid}=state) do
-    Logger.info "<Roulette.Subscription:#{inspect self()}> DOWN(consumer:#{inspect pid})"
+  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{consumer: pid}=state) do
+    Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(consumer:#{inspect pid})"
+    Process.demonitor(monitor_ref)
     {:stop, :shutdown, state}
   end
 
@@ -75,16 +78,16 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{consumer: pid}=state) do
-    Logger.info "<Roulette.Subscription:#{inspect self()}> EXIT(consumer:#{inspect pid})"
+    Logger.debug "<Roulette.Subscription:#{inspect self()}> EXIT(consumer:#{inspect pid})"
     {:stop, :shutdown, state}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    Logger.info "<Roulette.Subscription:#{inspect self()}> EXIT(#{inspect pid})"
+    Logger.debug "<Roulette.Subscription:#{inspect self()}> EXIT(#{inspect pid})"
     {:stop, :shutdown, state}
   end
 
   def handle_info(info, state) do
-    Logger.info "<Roulette.Subscription:#{inspect self()}> unsupported info: #{inspect info}"
+    Logger.debug "<Roulette.Subscription:#{inspect self()}> unsupported info: #{inspect info}"
     {:noreply, state}
   end
 
@@ -166,6 +169,10 @@ defmodule Roulette.Subscription do
     try do
       Gnat.unsub(gnat, ref)
     catch
+      #:exit, {reason, _detail} = error when reason in [:shutdonw, :noproc] ->
+      #  Logger.info "<Roulette.Subscription:#{inspect self()}> tried to unsub, but the connection is already closing: #{inspect error}"
+      #  :ok
+
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
         Logger.error "<Roulette.Subscription:#{inspect self()}> failed to unsubscribe: #{inspect e}"
