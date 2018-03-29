@@ -103,11 +103,11 @@ defmodule Roulette.Connection do
     {:reply, {:ok, gnat}, state}
   end
 
-  def terminate(reason, %{gnat: nil}=state) do
+  def terminate(reason, %{gnat: nil}) do
     Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
     :ok
   end
-  def terminate(reason, %{gnat: gnat}=state) do
+  def terminate(reason, %{gnat: gnat}) do
     Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
     Logger.debug "<Roulette.Connection:#{inspect self()}> stop gnat"
     Gnat.stop(gnat)
