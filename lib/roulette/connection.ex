@@ -14,6 +14,7 @@ defmodule Roulette.Connection do
   defstruct host: "",
             port: nil,
             gnat: nil,
+            show_debug_log: false,
             ping_interval: 0
 
   def start_link(opts) do
@@ -40,12 +41,16 @@ defmodule Roulette.Connection do
         port: state.port
       })
 
-    Logger.debug "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect gnat_opts}"
+    if state.show_debug_log do
+      Logger.debug "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect gnat_opts}"
+    end
 
     case Gnat.start_link(gnat_opts) do
 
       {:ok, gnat} ->
-        Logger.debug "<Roulette.Connection:#{inspect self()}> linked to gnat(#{inspect gnat})."
+        if state.show_debug_log do
+          Logger.debug "<Roulette.Connection:#{inspect self()}> linked to gnat(#{inspect gnat})."
+        end
         Process.send_after(self(), :ping, state.ping_interval)
         {:noreply, %{state|gnat: gnat}}
 
@@ -60,8 +65,6 @@ defmodule Roulette.Connection do
   def handle_info(:ping, state) do
 
     if state.gnat != nil do
-
-      Logger.debug "<Roulette.Connection:#{inspect self()}> PING"
 
       # send PING and wait for PONG
       case do_gnat_ping(state.gnat) do
@@ -88,11 +91,15 @@ defmodule Roulette.Connection do
     {:noreply, %{state| gnat: nil}}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    Logger.debug "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
+    if state.show_debug_log do
+      Logger.debug "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
+    end
     {:stop, :shutdown, state}
   end
   def handle_info(info, state) do
-    Logger.debug "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
+    if state.show_debug_log do
+      Logger.debug "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
+    end
     {:noreply, state}
   end
 
@@ -103,13 +110,17 @@ defmodule Roulette.Connection do
     {:reply, {:ok, gnat}, state}
   end
 
-  def terminate(reason, %{gnat: nil}) do
-    Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+  def terminate(reason, %{gnat: nil}=state) do
+    if state.show_debug_log do
+      Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+    end
     :ok
   end
-  def terminate(reason, %{gnat: gnat}) do
-    Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
-    Logger.debug "<Roulette.Connection:#{inspect self()}> stop gnat"
+  def terminate(reason, %{gnat: gnat}=state) do
+    if state.show_debug_log do
+      Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+      Logger.debug "<Roulette.Connection:#{inspect self()}> stop gnat"
+    end
     Gnat.stop(gnat)
     :ok
   end
@@ -119,12 +130,14 @@ defmodule Roulette.Connection do
     host = Keyword.fetch!(opts, :host)
     port = Keyword.fetch!(opts, :port)
 
-    ping_interval  = Keyword.fetch!(opts, :ping_interval)
+    ping_interval   = Keyword.fetch!(opts, :ping_interval)
+    show_debug_log  = Keyword.fetch!(opts, :show_debug_log)
 
     %__MODULE__{
       host: host,
       port: port,
       gnat: nil,
+      show_debug_log: show_debug_log,
       ping_interval:  ping_interval,
     }
 
