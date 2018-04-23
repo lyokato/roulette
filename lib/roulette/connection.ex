@@ -73,9 +73,9 @@ defmodule Roulette.Connection do
           # OK, got PONG in time. Check again after interval.
           Process.send_after(self(), :ping, state.ping_interval)
 
-        _other ->
+        other ->
           # if it takes 3_000 milli seconds (3_000 is hard-coded in Gnat)
-          Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection."
+          Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection. #{inspect other}"
           Gnat.stop(state.gnat)
 
       end
