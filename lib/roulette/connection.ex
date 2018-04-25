@@ -15,6 +15,8 @@ defmodule Roulette.Connection do
             port: nil,
             gnat: nil,
             show_debug_log: false,
+            ping_count: 0,
+            max_ping_failure: 2,
             ping_interval: 0
 
   def start_link(opts) do
@@ -62,9 +64,26 @@ defmodule Roulette.Connection do
 
   end
 
+  def handle_info(:pong, state) do
+    {:noreply, %{state|ping_count: 0}}
+  end
+
+  def handle_info(:ping, %{gnat: nil}=state) do
+    {:noreply, state}
+  end
   def handle_info(:ping, state) do
 
-    if state.gnat != nil do
+    if state.ping_count >= state.max_ping_failure do
+
+      Logger.error "<Roulette.Connection:#{inspect self()}> failed #{state.max_ping_failure} PING(s). close connection."
+      Gnat.stop(state.gnat)
+      {:noreply, state}
+
+    else
+
+      if state.ping_count > 0 do
+        Logger.warn "<Roulette.Connection:#{inspect self()}> failed #{state.ping_count} PING(s). keep waiting."
+      end
 
       # send PING and wait for PONG
       case do_gnat_ping(state.gnat) do
@@ -72,17 +91,18 @@ defmodule Roulette.Connection do
         :ok ->
           # OK, got PONG in time. Check again after interval.
           Process.send_after(self(), :ping, state.ping_interval)
+          ping_count = state.ping_count + 1
+          {:noreply, %{state|ping_count: ping_count}}
 
         other ->
           # if it takes 3_000 milli seconds (3_000 is hard-coded in Gnat)
           Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection. #{inspect other}"
           Gnat.stop(state.gnat)
+          {:noreply, state}
 
       end
 
     end
-
-    {:noreply, state}
   end
 
   def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
@@ -130,22 +150,27 @@ defmodule Roulette.Connection do
     host = Keyword.fetch!(opts, :host)
     port = Keyword.fetch!(opts, :port)
 
-    ping_interval   = Keyword.fetch!(opts, :ping_interval)
-    show_debug_log  = Keyword.fetch!(opts, :show_debug_log)
+    ping_interval = Keyword.fetch!(opts, :ping_interval)
+    show_debug_log = Keyword.fetch!(opts, :show_debug_log)
+
+    max_ping_failure = Keyword.fetch!(opts, :max_ping_failure)
 
     %__MODULE__{
       host: host,
       port: port,
       gnat: nil,
       show_debug_log: show_debug_log,
-      ping_interval:  ping_interval,
+      ping_interval: ping_interval,
+      max_ping_failure: max_ping_failure,
+      ping_count: 0,
     }
 
   end
 
   defp do_gnat_ping(conn) do
     try do
-      Gnat.ping(conn)
+      # Gnat.ping(conn)
+      GenServer.call(conn, {:ping, self()})
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
