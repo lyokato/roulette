@@ -53,7 +53,7 @@ defmodule Roulette.Connection do
         if state.show_debug_log do
           Logger.debug "<Roulette.Connection:#{inspect self()}> linked to gnat(#{inspect gnat})."
         end
-        Process.send_after(self(), :ping, state.ping_interval)
+        Process.send_after(self(), :ping, calc_ping_interval(state.ping_interval))
         {:noreply, %{state|gnat: gnat}}
 
       other ->
@@ -90,7 +90,7 @@ defmodule Roulette.Connection do
 
         :ok ->
           # OK, got PONG in time. Check again after interval.
-          Process.send_after(self(), :ping, state.ping_interval)
+          Process.send_after(self(), :ping, calc_ping_interval(state.ping_interval))
           ping_count = state.ping_count + 1
           {:noreply, %{state|ping_count: ping_count}}
 
@@ -165,6 +165,11 @@ defmodule Roulette.Connection do
       ping_count: 0,
     }
 
+  end
+
+  defp calc_ping_interval(interval) do
+    # TODO make configurable
+    interval + :rand.uniform(1000)
   end
 
   defp do_gnat_ping(conn) do
