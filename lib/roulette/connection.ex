@@ -77,7 +77,7 @@ defmodule Roulette.Connection do
 
       Logger.error "<Roulette.Connection:#{inspect self()}> failed #{state.max_ping_failure} PING(s). close connection."
       Gnat.stop(state.gnat)
-      {:noreply, state}
+      {:noreply, %{state|ping_count: 0}}
 
     else
 
