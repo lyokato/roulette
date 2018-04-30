@@ -38,19 +38,23 @@ defmodule Roulette.Supervisor do
       :subscriber -> [:subscriber]
     end
 
-    pool_size      = Config.get(:connection, :pool_size)
-    ping_interval  = Config.get(:connection, :ping_interval)
-    show_debug_log = Config.get(:connection, :show_debug_log)
+    pool_size        = Config.get(:connection, :pool_size)
+    ping_interval    = Config.get(:connection, :ping_interval)
+    max_ping_failure = Config.get(:connection, :max_ping_failure)
+    show_debug_log   = Config.get(:connection, :show_debug_log)
 
     cluster_supervisors = enabled_roles |> Enum.flat_map(fn role ->
 
       ring |> Enum.map(fn target ->
 
-       cluster_supervisor(role,
-                          target,
-                          pool_size,
-                          show_debug_log,
-                          ping_interval)
+        cluster_supervisor(
+          role,
+          target,
+          pool_size,
+          show_debug_log,
+          ping_interval,
+          max_ping_failure
+        )
 
       end)
 
@@ -72,11 +76,14 @@ defmodule Roulette.Supervisor do
         reserved_cluster_supervisors =
           reserved_ring |> Enum.map(fn target ->
 
-           cluster_supervisor(:subscriber,
-                              target,
-                              pool_size,
-                              show_debug_log,
-                              ping_interval)
+            cluster_supervisor(
+              :subscriber,
+              target,
+              pool_size,
+              show_debug_log,
+              ping_interval,
+              max_ping_failure
+            )
 
           end)
 
@@ -96,7 +103,7 @@ defmodule Roulette.Supervisor do
 
   end
 
-  defp cluster_supervisor(role, target, pool_size, show_debug_log, ping_interval) do
+  defp cluster_supervisor(role, target, pool_size, show_debug_log, ping_interval, max_ping_failure) do
 
     {host, port} = Config.get_host_and_port(target)
 
@@ -104,13 +111,14 @@ defmodule Roulette.Supervisor do
     pool = AtomGenerator.cluster_pool(role, host, port)
 
     {ClusterSupervisor,
-      [name:           name,
-       host:           host,
-       port:           port,
-       ping_interval:  ping_interval,
-       show_debug_log: show_debug_log,
-       pool_name:      pool,
-       pool_size:      pool_size]}
+      [name:             name,
+       host:             host,
+       port:             port,
+       ping_interval:    ping_interval,
+       max_ping_failure: max_ping_failure,
+       show_debug_log:   show_debug_log,
+       pool_name:        pool,
+       pool_size:        pool_size]}
 
   end
 

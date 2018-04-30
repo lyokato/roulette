@@ -20,6 +20,7 @@ defmodule Roulette.Config do
       ring: [],
       reserved_ring: [],
       ping_interval: 5_000,
+      max_ping_failure: 2,
       show_debug_log: false,
       pool_size: 5,
       gnat: %{
