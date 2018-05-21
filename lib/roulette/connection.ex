@@ -75,14 +75,14 @@ defmodule Roulette.Connection do
 
     if state.ping_count >= state.max_ping_failure do
 
-      Logger.error "<Roulette.Connection:#{inspect self()}> failed #{state.max_ping_failure} PING(s). close connection."
+      Logger.error "<Roulette.Connection:#{inspect self()}> failed #{state.max_ping_failure} PING(s). close connection. host: #{state.host}"
       Gnat.stop(state.gnat)
       {:noreply, %{state|ping_count: 0}}
 
     else
 
       if state.ping_count > 0 do
-        Logger.warn "<Roulette.Connection:#{inspect self()}> failed #{state.ping_count} PING(s). keep waiting."
+        Logger.warn "<Roulette.Connection:#{inspect self()}> failed #{state.ping_count} PING(s). keep waiting. host: #{state.host}"
       end
 
       # send PING and wait for PONG
@@ -96,7 +96,7 @@ defmodule Roulette.Connection do
 
         other ->
           # if it takes 3_000 milli seconds (3_000 is hard-coded in Gnat)
-          Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection. #{inspect other}"
+          Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection. #{inspect other}. host: #{state.host}"
           Gnat.stop(state.gnat)
           {:noreply, state}
 
