@@ -7,7 +7,7 @@ defmodule Roulette.Config do
       required(:port) => pos_integer
     }
 
-  @type gnat_config :: %{
+  @type nats_config :: %{
       required(:host)               => String.t,
       required(:port)               => pos_integer,
       optional(:connection_timeout) => pos_integer,
@@ -23,7 +23,7 @@ defmodule Roulette.Config do
       max_ping_failure: 2,
       show_debug_log: false,
       pool_size: 5,
-      gnat: %{
+      nats: %{
         connection_timeout: 5_000,
         tls: false,
         ssl_opts: [],
@@ -31,7 +31,7 @@ defmodule Roulette.Config do
       }
     ]
 
-  @gnat_config_keys [:connection_timeout, :tls, :ssl_opts, :tcp_opts]
+  @nats_config_keys [:connection_timeout, :tls, :ssl_opts, :tcp_opts]
 
   @default_publisher_values [
       max_retry: 10
@@ -48,11 +48,11 @@ defmodule Roulette.Config do
     get_category(type) |> Keyword.fetch!(key)
   end
 
-  @spec merge_gnat_config(host) :: gnat_config
-  def merge_gnat_config(host) do
-    gnat_config = get(:connection, :gnat)
-    @gnat_config_keys
-    |> Enum.reduce(host, &(Map.put(&2, &1, Map.fetch!(gnat_config, &1))))
+  @spec merge_nats_config(host) :: nats_config
+  def merge_nats_config(host) do
+    nats_config = get(:connection, :nats)
+    @nats_config_keys
+    |> Enum.reduce(host, &(Map.put(&2, &1, Map.fetch!(nats_config, &1))))
   end
 
   defp default_values(:subscriber) do

@@ -3,17 +3,23 @@ defmodule Roulette.Connection do
   require Logger
 
   use GenServer
+  alias Roulette.NatsClient
 
   @reconnection_interval 100
 
-  @spec get(pid) :: {:ok, pid} | {:error, :not_found}
+  @spec get(pid) :: {:ok, pid} | {:error, :not_found | :timeout}
   def get(pid) do
-    GenServer.call(pid, :get_connection)
+    try do
+      GenServer.call(pid, :get_connection, 100)
+    catch
+      :exit, _e ->
+        {:error, :timeout}
+    end
   end
 
   defstruct host: "",
             port: nil,
-            gnat: nil,
+            nats: nil,
             show_debug_log: false,
             ping_count: 0,
             max_ping_failure: 2,
@@ -37,24 +43,24 @@ defmodule Roulette.Connection do
 
   def handle_info(:connect, state) do
 
-    gnat_opts =
-      Roulette.Config.merge_gnat_config(%{
+    nats_opts =
+      Roulette.Config.merge_nats_config(%{
         host: state.host,
         port: state.port
       })
 
     if state.show_debug_log do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect gnat_opts}"
+      Logger.debug "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect nats_opts}"
     end
 
-    case Gnat.start_link(gnat_opts) do
+    case NatsClient.start_link(nats_opts) do
 
-      {:ok, gnat} ->
+      {:ok, nats} ->
         if state.show_debug_log do
-          Logger.debug "<Roulette.Connection:#{inspect self()}> linked to gnat(#{inspect gnat})."
+          Logger.debug "<Roulette.Connection:#{inspect self()}> linked to nats(#{inspect nats})."
         end
         Process.send_after(self(), :ping, calc_ping_interval(state.ping_interval))
-        {:noreply, %{state|gnat: gnat, ping_count: 0}}
+        {:noreply, %{state|nats: nats, ping_count: 0}}
 
       other ->
         Logger.error "<Roulett.Connection:#{inspect self()}> failed to connect - #{state.host}:#{state.port} #{inspect other}"
@@ -68,7 +74,7 @@ defmodule Roulette.Connection do
     {:noreply, %{state|ping_count: 0}}
   end
 
-  def handle_info(:ping, %{gnat: nil}=state) do
+  def handle_info(:ping, %{nats: nil}=state) do
     {:noreply, state}
   end
   def handle_info(:ping, state) do
@@ -76,7 +82,7 @@ defmodule Roulette.Connection do
     if state.ping_count >= state.max_ping_failure do
 
       Logger.error "<Roulette.Connection:#{inspect self()}> failed #{state.max_ping_failure} PING(s). close connection. host: #{state.host}"
-      Gnat.stop(state.gnat)
+      NatsClient.stop(state.nats)
       {:noreply, %{state|ping_count: 0}}
 
     else
@@ -85,8 +91,7 @@ defmodule Roulette.Connection do
         Logger.warn "<Roulette.Connection:#{inspect self()}> failed #{state.ping_count} PING(s). keep waiting. host: #{state.host}"
       end
 
-      # send PING and wait for PONG
-      case do_gnat_ping(state.gnat) do
+      case do_nats_ping(state.nats) do
 
         :ok ->
           # OK, got PONG in time. Check again after interval.
@@ -95,9 +100,8 @@ defmodule Roulette.Connection do
           {:noreply, %{state|ping_count: ping_count}}
 
         other ->
-          # if it takes 3_000 milli seconds (3_000 is hard-coded in Gnat)
           Logger.warn "<Roulette.Connection:#{inspect self()}> failed PING. close connection. #{inspect other}. host: #{state.host}"
-          Gnat.stop(state.gnat)
+          NatsClient.stop(state.nats)
           {:noreply, state}
 
       end
@@ -105,10 +109,10 @@ defmodule Roulette.Connection do
     end
   end
 
-  def handle_info({:EXIT, pid, _reason}, %{gnat: pid}=state) do
-    Logger.warn "<Roulette.Connection:#{inspect self()}> seems to be disconnected - gnat(#{inspect pid}:#{state.host}:#{state.port}), try to reconnect."
+  def handle_info({:EXIT, pid, _reason}, %{nats: pid}=state) do
+    Logger.warn "<Roulette.Connection:#{inspect self()}> seems to be disconnected - nats(#{inspect pid}:#{state.host}:#{state.port}), try to reconnect."
     Process.send_after(self(), :connect, @reconnection_interval)
-    {:noreply, %{state| gnat: nil}}
+    {:noreply, %{state| nats: nil}}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
     if state.show_debug_log do
@@ -123,25 +127,17 @@ defmodule Roulette.Connection do
     {:noreply, state}
   end
 
-  def handle_call(:get_connection, _from, %{gnat: nil}=state) do
+  def handle_call(:get_connection, _from, %{nats: nil}=state) do
     {:reply, {:error, :not_found}, state}
   end
-  def handle_call(:get_connection, _from, %{gnat: gnat}=state) do
-    {:reply, {:ok, gnat}, state}
+  def handle_call(:get_connection, _from, %{nats: nats}=state) do
+    {:reply, {:ok, nats}, state}
   end
 
-  def terminate(reason, %{gnat: nil}=state) do
+  def terminate(reason, state) do
     if state.show_debug_log do
       Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
     end
-    :ok
-  end
-  def terminate(reason, %{gnat: gnat}=state) do
-    if state.show_debug_log do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
-      Logger.debug "<Roulette.Connection:#{inspect self()}> stop gnat"
-    end
-    Gnat.stop(gnat)
     :ok
   end
 
@@ -158,7 +154,7 @@ defmodule Roulette.Connection do
     %__MODULE__{
       host: host,
       port: port,
-      gnat: nil,
+      nats: nil,
       show_debug_log: show_debug_log,
       ping_interval: ping_interval,
       max_ping_failure: max_ping_failure,
@@ -172,10 +168,9 @@ defmodule Roulette.Connection do
     interval + :rand.uniform(1000)
   end
 
-  defp do_gnat_ping(conn) do
+  defp do_nats_ping(conn) do
     try do
-      # Gnat.ping(conn)
-      GenServer.call(conn, {:ping, self()})
+      NatsClient.ping(conn)
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
