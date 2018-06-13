@@ -10,6 +10,9 @@ defmodule Roulette.Publisher do
   alias Roulette.ClusterChooser
   alias Roulette.Config
   alias Roulette.Connection
+  alias Roulette.NatsClient
+
+  @checkout_timeout 5_000
 
   @doc ~S"""
   Publish a message-data with a `topic`
@@ -73,33 +76,43 @@ defmodule Roulette.Publisher do
   end
 
   defp do_pub_on_cluster(pool, topic, data) do
-    :poolboy.transaction(pool, fn conn ->
+    try do
+      :poolboy.transaction(pool, fn conn ->
 
-      case Connection.get(conn) do
+        case Connection.get(conn) do
 
-        {:ok, gnat} ->
-          case do_gnat_pub(gnat, topic, data) do
+          {:ok, nats} ->
+            case do_nats_pub(nats, topic, data) do
 
-            :ok -> :ok
+              :ok -> :ok
 
-            other ->
-              Logger.warn "<Roulette.Publisher> failed to pub: #{inspect other}"
-              :error
+              other ->
+                Logger.warn "<Roulette.Publisher> failed to pub: #{inspect other}"
+                :error
 
-          end
+            end
 
-        {:error, :not_found} ->
-          Logger.error "<Roulette.Publisher> connection lost"
-          :error
+          {:error, :timeout} ->
+            Logger.warn "<Roulette.Publisher> failed to checkout connection: timeout (maybe closing)"
+            :error
 
-      end
+          {:error, :not_found} ->
+            Logger.warn "<Roulette.Publisher> connection lost"
+            :error
 
-    end)
+        end
+
+      end, @checkout_timeout)
+    catch
+      :exit, _e ->
+        Logger.warn "<Roulette.Publisher> failed to checkout connection: timeout"
+        :error
+    end
   end
 
-  defp do_gnat_pub(gnat, topic, data) do
+  defp do_nats_pub(nats, topic, data) do
     try do
-      Gnat.pub(gnat, topic, data)
+      NatsClient.pub(nats, topic, data)
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->

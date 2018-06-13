@@ -6,9 +6,12 @@ defmodule Roulette.Subscription do
 
   alias Roulette.Connection
   alias Roulette.Config
+  alias Roulette.NatsClient
 
   @type restart_strategy :: :temporary | :permanent
   @type ring_type :: :default | :reserved
+
+  @checkout_timeout 5_000
 
   defstruct topic: "",
             ring_type: :default,
@@ -18,7 +21,7 @@ defmodule Roulette.Subscription do
             restart: :permanent,
             max_retry: 5,
             pool: nil,
-            gnat: nil,
+            nats: nil,
             ref: nil
 
   def child_spec(_opts) do
@@ -55,20 +58,20 @@ defmodule Roulette.Subscription do
 
   def handle_info(:setup, state), do: setup(state, 0, state.max_retry)
 
-  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{gnat: pid, restart: :temporary}=state) do
+  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{nats: pid, restart: :temporary}=state) do
     if state.show_debug_log do
-      Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(gnat:#{inspect pid}) start to shutdown"
+      Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(nats:#{inspect pid}) start to shutdown"
     end
     Process.demonitor(monitor_ref)
-    {:stop, :shutdown, %{state| gnat: nil, ref: nil}}
+    {:stop, :shutdown, %{state| nats: nil, ref: nil}}
   end
-  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{gnat: pid, restart: :permanent}=state) do
+  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{nats: pid, restart: :permanent}=state) do
     if state.show_debug_log do
-      Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(gnat:#{inspect pid}) start to reconnect"
+      Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(nats:#{inspect pid}) start to reconnect"
     end
     Process.demonitor(monitor_ref)
     Process.send_after(self(), :setup, state.retry_interval)
-    {:noreply, %{state| gnat: nil, ref: nil}}
+    {:noreply, %{state| nats: nil, ref: nil}}
   end
 
   def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{consumer: pid}=state) do
@@ -114,7 +117,7 @@ defmodule Roulette.Subscription do
     if state.show_debug_log do
       Logger.debug "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
     end
-    do_gnat_unsub(state.gnat, state.ref)
+    do_nats_unsub(state.nats, state.ref)
     :ok
   end
 
@@ -129,7 +132,7 @@ defmodule Roulette.Subscription do
       max_retry:      Config.get(:subscriber, :max_retry),
       show_debug_log: Config.get(:subscriber, :show_debug_log),
       ref:            nil,
-      gnat:           nil
+      nats:           nil
     }
   end
 
@@ -137,44 +140,53 @@ defmodule Roulette.Subscription do
 
     case do_setup(state) do
 
-      {:ok, gnat, ref} ->
-        Process.monitor(gnat)
-        {:noreply, %{state | ref: ref, gnat: gnat}}
+      {:ok, nats, ref} ->
+        Process.monitor(nats)
+        {:noreply, %{state | ref: ref, nats: nats}}
 
-      other when attempts < max_retry ->
-        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to setup subscription: #{inspect other}"
+      _other when attempts < max_retry ->
         setup(state, attempts + 1, max_retry)
 
-      other ->
-        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to setup subscription: #{inspect other}"
+      _other ->
+        Logger.error "<Roulette.Subscription:#{inspect self()}> failed to setup subscription eventually"
         {:stop, :shutdown, state}
     end
 
   end
 
   defp do_setup(state) do
+    try do
+      :poolboy.transaction(state.pool, fn conn ->
 
-    state.pool |> :poolboy.transaction(fn conn ->
+        case Connection.get(conn) do
 
-      case Connection.get(conn) do
+          {:ok, nats} ->
+            case do_nats_sub(nats, state.topic) do
+              {:ok, ref}       -> {:ok, nats, ref}
+              {:error ,reason} -> {:error, reason}
+            end
 
-        {:ok, gnat} ->
-          case do_gnat_sub(gnat, state.topic) do
-            {:ok, ref}       -> {:ok, gnat, ref}
-            {:error ,reason} -> {:error, reason}
-          end
+          {:error, :timeout} ->
+            Logger.warn "<Roulette.Subscription:#{inspect self()}> failed checkout connection: timeout (maybe closing)"
+            {:error, :timeout}
 
-        {:error, :not_found} -> {:error, :not_found}
+          {:error, :not_found} ->
+            Logger.warn "<Roulette.Subscription:#{inspect self()}> connection lost"
+            {:error, :not_found}
 
-      end
+        end
 
-    end)
-
+      end, @checkout_timeout)
+    catch
+      :exit, _e ->
+        Logger.warn "<Roulette.Subscription:#{inspect self()}> failed checkout connection: timeout"
+        {:error, :timeout}
+    end
   end
 
-  defp do_gnat_sub(gnat, topic) do
+  defp do_nats_sub(nats, topic) do
     try do
-      Gnat.sub(gnat, self(), topic)
+      NatsClient.sub(nats, self(), topic)
     catch
       # if it takes 5_000 milli seconds (5_000 is default setting for GenServer.call)
       :exit, e ->
@@ -183,9 +195,9 @@ defmodule Roulette.Subscription do
     end
   end
 
-  defp do_gnat_unsub(gnat, ref) do
+  defp do_nats_unsub(nats, ref) do
     try do
-      Gnat.unsub(gnat, ref)
+      NatsClient.unsub(nats, ref)
     catch
       #:exit, {reason, _detail} = error when reason in [:shutdonw, :noproc] ->
       #  Logger.info "<Roulette.Subscription:#{inspect self()}> tried to unsub, but the connection is already closing: #{inspect error}"
