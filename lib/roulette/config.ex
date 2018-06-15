@@ -34,12 +34,15 @@ defmodule Roulette.Config do
   @nats_config_keys [:connection_timeout, :tls, :ssl_opts, :tcp_opts]
 
   @default_publisher_values [
-      max_retry: 10
+      max_retry: 10,
+      max_backoff: 5_000,
+      base_backoff: 10
     ]
 
   @default_subscriber_values [
       max_retry: 10,
-      retry_interval: 2_000,
+      max_backoff: 5_000,
+      base_backoff: 10,
       show_debug_log: false,
       restart: :temporary
     ]
