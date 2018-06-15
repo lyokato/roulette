@@ -7,19 +7,18 @@ defmodule Roulette.Subscription do
   alias Roulette.Connection
   alias Roulette.Config
   alias Roulette.NatsClient
+  alias Roulette.Util
 
   @type restart_strategy :: :temporary | :permanent
   @type ring_type :: :default | :reserved
 
-  @checkout_timeout 5_000
+  @checkout_timeout 5_100
 
   defstruct topic: "",
             ring_type: :default,
             consumer: nil,
-            retry_interval: 2_000,
             show_debug_log: false,
             restart: :permanent,
-            max_retry: 5,
             pool: nil,
             nats: nil,
             ref: nil
@@ -50,13 +49,15 @@ defmodule Roulette.Subscription do
       Process.monitor(state.consumer)
     end
 
-    send self(), :setup
+    start_setup()
 
     {:ok, state}
 
   end
 
-  def handle_info(:setup, state), do: setup(state, 0, state.max_retry)
+  def handle_info({:setup, attempts, max_retry}, state) do
+    setup(state, attempts, max_retry)
+  end
 
   def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{nats: pid, restart: :temporary}=state) do
     if state.show_debug_log do
@@ -70,7 +71,7 @@ defmodule Roulette.Subscription do
       Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(nats:#{inspect pid}) start to reconnect"
     end
     Process.demonitor(monitor_ref)
-    Process.send_after(self(), :setup, state.retry_interval)
+    start_setup()
     {:noreply, %{state| nats: nil, ref: nil}}
   end
 
@@ -127,12 +128,10 @@ defmodule Roulette.Subscription do
       consumer:       opts.consumer,
       topic:          opts.topic,
       ring_type:      opts.ring_type,
-      restart:        Config.get(:subscriber, :restart),
-      retry_interval: Config.get(:subscriber, :retry_interval),
-      max_retry:      Config.get(:subscriber, :max_retry),
-      show_debug_log: Config.get(:subscriber, :show_debug_log),
       ref:            nil,
-      nats:           nil
+      nats:           nil,
+      restart:        Config.get(:subscriber, :restart),
+      show_debug_log: Config.get(:subscriber, :show_debug_log),
     }
   end
 
@@ -145,7 +144,8 @@ defmodule Roulette.Subscription do
         {:noreply, %{state | ref: ref, nats: nats}}
 
       _other when attempts < max_retry ->
-        setup(state, attempts + 1, max_retry)
+        retry_setup(attempts, max_retry)
+        {:noreply, state}
 
       _other ->
         Logger.error "<Roulette.Subscription:#{inspect self()}> failed to setup subscription eventually"
@@ -208,6 +208,24 @@ defmodule Roulette.Subscription do
         Logger.error "<Roulette.Subscription:#{inspect self()}> failed to unsubscribe: #{inspect e}"
         {:error, :timeout}
     end
+  end
+
+  defp start_setup() do
+    attempts  = 0
+    max_retry = Config.get(:subscriber, :max_retry)
+    send self(), {:setup, attempts, max_retry}
+  end
+
+  defp retry_setup(attempts, max_retry) do
+    message = {:setup, attempts + 1, max_retry}
+    backoff = calc_backoff(attempts)
+    Process.send_after(self(), message, backoff)
+  end
+
+  defp calc_backoff(attempts) do
+    base = Config.get(:subscriber, :base_backoff)
+    max  = Config.get(:subscriber, :max_backoff)
+    Util.calc_backoff(base, max, attempts)
   end
 
 end

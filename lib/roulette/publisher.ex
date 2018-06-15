@@ -11,8 +11,9 @@ defmodule Roulette.Publisher do
   alias Roulette.Config
   alias Roulette.Connection
   alias Roulette.NatsClient
+  alias Roulette.Util
 
-  @checkout_timeout 5_000
+  @checkout_timeout 5_100
 
   @doc ~S"""
   Publish a message-data with a `topic`
@@ -66,6 +67,7 @@ defmodule Roulette.Publisher do
       :ok -> :ok
 
       :error when attempts < max_retry ->
+        attempts |> calc_backoff() |> Process.sleep()
         pub_on_cluster(pool, topic, data, attempts + 1, max_retry)
 
       :error ->
@@ -108,6 +110,12 @@ defmodule Roulette.Publisher do
         Logger.warn "<Roulette.Publisher> failed to checkout connection: timeout"
         :error
     end
+  end
+
+  defp calc_backoff(attempts) do
+    base = Config.get(:publisher, :base_backoff)
+    max  = Config.get(:publisher, :max_backoff)
+    Util.calc_backoff(base, max, attempts)
   end
 
   defp do_nats_pub(nats, topic, data) do
