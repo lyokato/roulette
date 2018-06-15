@@ -10,7 +10,7 @@ defmodule Roulette.Connection do
   @spec get(pid) :: {:ok, pid} | {:error, :not_found | :timeout}
   def get(pid) do
     try do
-      GenServer.call(pid, :get_connection, 100)
+      GenServer.call(pid, :get_connection, 50)
     catch
       :exit, _e ->
         {:error, :timeout}
