@@ -7,21 +7,21 @@ defmodule Roulette.Subscription do
   alias Roulette.Connection
   alias Roulette.Config
   alias Roulette.NatsClient
-  alias Roulette.Util
+  alias Roulette.Registry
+  alias Roulette.Util.Backoff
 
-  @type restart_strategy :: :temporary | :permanent
-  @type ring_type :: :default | :reserved
+  @type restart_strategy :: :temporary
+                         |  :permanent
 
   @checkout_timeout 5_100
 
-  defstruct topic: "",
-            ring_type: :default,
-            consumer: nil,
+  defstruct topic:          "",
+            consumer:       nil,
             show_debug_log: false,
-            restart: :permanent,
-            pool: nil,
-            nats: nil,
-            ref: nil
+            restart:        :permanent,
+            pool:           nil,
+            nats:           nil,
+            ref:            nil
 
   def child_spec(_opts) do
     %{
@@ -37,11 +37,15 @@ defmodule Roulette.Subscription do
 
   def init(opts) do
 
-    Process.flag(:trap_exit, true)
-
     state = new(opts)
 
-    :gproc.reg({:n, :l, {state.consumer, state.topic, state.ring_type}})
+    Process.flag(:trap_exit, true)
+
+    Registry.register(
+      opts.module,
+      state.consumer,
+      state.topic
+    )
 
     if state.restart == :temporary do
       Process.link(state.consumer)
@@ -127,7 +131,6 @@ defmodule Roulette.Subscription do
       pool:           opts.pool,
       consumer:       opts.consumer,
       topic:          opts.topic,
-      ring_type:      opts.ring_type,
       ref:            nil,
       nats:           nil,
       restart:        Config.get(:subscriber, :restart),
@@ -225,7 +228,7 @@ defmodule Roulette.Subscription do
   defp calc_backoff(attempts) do
     base = Config.get(:subscriber, :base_backoff)
     max  = Config.get(:subscriber, :max_backoff)
-    Util.calc_backoff(base, max, attempts)
+    Backoff.calc(base, max, attempts)
   end
 
 end

@@ -6,28 +6,16 @@ defmodule Roulette.Publisher do
 
   require Logger
 
-  alias Roulette.AtomGenerator
-  alias Roulette.ClusterChooser
+  alias Roulette.ClusterPool
   alias Roulette.Config
   alias Roulette.Connection
   alias Roulette.NatsClient
-  alias Roulette.Util
+  alias Roulette.Util.Backoff
 
   @checkout_timeout 5_100
 
   @doc ~S"""
   Publish a message-data with a `topic`
-
-  ## Usage
-
-      username = "foobar"
-      data = Poison.encode!(%{"content" => "Hello!"})
-
-      case Roulette.Publisher.pub(foobar, data) do
-        :ok    -> handle_success()
-        :error -> handle_error()
-      end
-
 
   Internallly, `roulette` chooses a proper gnatsd-cluster for the `topic`.
   For this choice, `consistent-hashing` is utilized.
@@ -38,26 +26,28 @@ defmodule Roulette.Publisher do
 
   If it failed, automatically retry until it succeeds or reaches to the
   limit number that you set on your configuration as `max_retry`.
-
   """
 
-  @spec pub(topic :: String.t,
-            data  :: binary)
-    :: :ok | :error
+  @spec pub(
+    module :: module,
+    topic  :: String.t,
+    data   :: binary
+  ) :: :ok | :error
 
-  def pub(topic, data) do
+  def pub(module, topic, data) do
 
+    pool      = ClusterPool.choose(module, :publisher, topic)
     max_retry = Config.get(:publisher, :max_retry)
     attempts  = 0
 
-    choose_pool(topic)
-    |> pub_on_cluster(topic, data, attempts, max_retry)
-  end
+    pub_on_cluster(
+      pool,
+      topic,
+      data,
+      attempts,
+      max_retry
+    )
 
-  defp choose_pool(topic) do
-    target = ClusterChooser.Default.choose(topic)
-    {host, port} = Config.get_host_and_port(target)
-    AtomGenerator.cluster_pool(:publisher, host, port)
   end
 
   defp pub_on_cluster(pool, topic, data, attempts, max_retry) do
@@ -115,7 +105,7 @@ defmodule Roulette.Publisher do
   defp calc_backoff(attempts) do
     base = Config.get(:publisher, :base_backoff)
     max  = Config.get(:publisher, :max_backoff)
-    Util.calc_backoff(base, max, attempts)
+    Backoff.calc(base, max, attempts)
   end
 
   defp do_nats_pub(nats, topic, data) do

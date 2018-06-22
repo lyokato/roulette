@@ -6,24 +6,31 @@ defmodule Roulette do
   See https://github.com/lyokato/roulette
   """
 
-  def child_spec(), do: child_spec([])
-  def child_spec(opts) do
-    Roulette.Supervisor.child_spec(opts)
-  end
+  defmacro __using__(opts \\ []) do
+    quote location: :keep, bind_quoted: [opts: opts] do
 
-  @spec pub(String.t, any) :: :ok | :error
-  def pub(topic, data) do
-    Roulette.Publisher.pub(topic, data)
-  end
+      @config Roulette.Config.load(__MODULE__, opts)
 
-  @spec sub(String.t) :: Supervisor.on_start_child
-  def sub(topic) do
-    Roulette.Subscriber.sub(topic)
-  end
+      @spec pub(String.t, any) :: :ok | :error
+      def pub(topic, data) do
+        Roulette.Publisher.pub(__MODULE__, topic, data)
+      end
 
-  @spec unsub(pid | String.t) :: :ok
-  def unsub(pid_or_topic) do
-    Roulette.Subscriber.unsub(pid_or_topic)
+      @spec sub(String.t) :: :ok | :error
+      def sub(topic, data) do
+        Roulette.Subscriber.sub(__MODULE__, topic)
+      end
+
+      @spec unsub(String.t) :: :ok
+      def unsub(topic, data) do
+        Roulette.Subscriber.unsub(__MODULE__, pid_or_topic)
+      end
+
+      def child_spec(opts \\ []) do
+        Roulette.Supervisor.child_spec(__MODULE__, opts)
+      end
+
+    end
   end
 
 end

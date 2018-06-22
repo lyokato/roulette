@@ -96,4 +96,25 @@ defmodule Roulette.Config do
     {host, port}
   end
 
+  @doc ~S"""
+  Load handler's configuration.
+  """
+  @spec load(module, any) :: any
+  def load(module, opts) do
+    config = Keyword.fetch!(opts, :otp_app)
+           |> Application.get_env(module, [])
+  end
+
+  @doc ~S"""
+  Ensure passed module is compiled already.
+  Or else, this function raise an error.
+  """
+  @spec ensure_module_loaded(module) :: :ok
+  def ensure_module_loaded(module) do
+    unless Code.ensure_loaded?(module) do
+      raise ArgumentError, "#{module} not compiled, ensure the name is correct and it's included in project dependencies."
+    end
+    :ok
+  end
+
 end

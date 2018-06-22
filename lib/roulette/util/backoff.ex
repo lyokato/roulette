@@ -1,6 +1,6 @@
-defmodule Roulette.Util do
+defmodule Roulette.Util.Backoff do
 
-  def calc_backoff(base_ms, max_ms, attempt_counts) do
+  def calc(base_ms, max_ms, attempt_counts) do
     base_ms * :math.pow(2, attempt_counts)
     |> min(max_ms)
     |> trunc

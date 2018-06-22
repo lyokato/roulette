@@ -20,7 +20,6 @@ defmodule Roulette.Mixfile do
         :fastglobal,
         :logger,
         :gnat,
-        :gproc,
         :poolboy
       ]
     ]
@@ -32,7 +31,6 @@ defmodule Roulette.Mixfile do
       {:ex_hash_ring, "~> 1.0"},
       {:fastglobal, "~> 1.0"},
       {:gnat, "~> 0.4.1"},
-      {:gproc, "~> 0.6.1"},
       {:poolboy, "~> 1.5"}
     ]
   end
