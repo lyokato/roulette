@@ -17,6 +17,7 @@ defmodule Roulette.Registry do
     end
   end
 
+  @spec name(atom) :: atom
   def name(module) do
     Module.concat(module, Registry)
   end

@@ -1,7 +1,5 @@
 defmodule Roulette.Subscriber do
 
-  require Logger
-
   alias Roulette.Registry
   alias Roulette.SubscriptionSupervisor
 

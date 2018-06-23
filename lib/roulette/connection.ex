@@ -50,15 +50,19 @@ defmodule Roulette.Connection do
         port: state.port
       })
 
-    if state.show_debug_log do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect nats_opts}"
+    Logger.debug fn ->
+      if state.show_debug_log do
+        "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect nats_opts}"
+      end
     end
 
     case NatsClient.start_link(nats_opts) do
 
       {:ok, nats} ->
-        if state.show_debug_log do
-          Logger.debug "<Roulette.Connection:#{inspect self()}> linked to nats(#{inspect nats})."
+        Logger.debug fn ->
+          if state.show_debug_log do
+            "<Roulette.Connection:#{inspect self()}> linked to nats(#{inspect nats})."
+          end
         end
         Process.send_after(self(), :ping, calc_ping_interval(state.ping_interval))
         {:noreply, %{state|nats: nats, ping_count: 0}}
@@ -75,7 +79,7 @@ defmodule Roulette.Connection do
     {:noreply, %{state|ping_count: 0}}
   end
 
-  def handle_info(:ping, %{nats: nil}=state) do
+  def handle_info(:ping, %{nats: nil} = state) do
     {:noreply, state}
   end
   def handle_info(:ping, state) do
@@ -110,36 +114,42 @@ defmodule Roulette.Connection do
     end
   end
 
-  def handle_info({:EXIT, pid, _reason}, %{nats: pid}=state) do
+  def handle_info({:EXIT, pid, _reason}, %{nats: pid} = state) do
     Logger.warn "<Roulette.Connection:#{inspect self()}> seems to be disconnected - nats(#{inspect pid}:#{state.host}:#{state.port}), try to reconnect."
     Process.send_after(self(), :connect, @reconnection_interval)
     {:noreply, %{state| nats: nil}}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    if state.show_debug_log do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
+    Logger.debug fn ->
+      if state.show_debug_log do
+        "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
+      end
     end
     {:stop, :shutdown, state}
   end
   def handle_info(info, state) do
-    if state.show_debug_log do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
+    Logger.debug fn ->
+      if state.show_debug_log do
+        "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
+      end
     end
     {:noreply, state}
   end
 
   @impl GenServer
-  def handle_call(:get_connection, _from, %{nats: nil}=state) do
+  def handle_call(:get_connection, _from, %{nats: nil} = state) do
     {:reply, {:error, :not_found}, state}
   end
-  def handle_call(:get_connection, _from, %{nats: nats}=state) do
+  def handle_call(:get_connection, _from, %{nats: nats} = state) do
     {:reply, {:ok, nats}, state}
   end
 
   @impl GenServer
   def terminate(reason, state) do
-    if state.show_debug_log do
-      Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+    Logger.debug fn ->
+      if state.show_debug_log do
+        "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
+      end
     end
     :ok
   end

@@ -86,7 +86,7 @@ defmodule Roulette.Config do
   @doc ~S"""
   Load handler's configuration.
   """
-  @spec load(module, any) :: :ok
+  @spec load(module, any) :: {Keyword.t, Keyword.t, Keyword.t}
   def load(module, opts) do
     conf = opts
            |> Keyword.fetch!(:otp_app)

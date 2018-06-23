@@ -16,8 +16,8 @@ defmodule Roulette.Supervisor do
   end
 
   def init([module, conf, opts]) do
-    children(module, conf, opts)
-    |> Supervisor.init(strategy: :one_for_one)
+    children = children(module, conf, opts)
+    Supervisor.init(children, strategy: :one_for_one)
   end
 
   defp children(module, conf, opts) do
@@ -33,7 +33,7 @@ defmodule Roulette.Supervisor do
     end
 
     servers = Config.get(module, :connection, :servers)
-    if length(servers) == 0 do
+    if Enum.empty?(servers) do
       raise "<Roulette> you should prepare at least one host, check your :servers configuration."
     end
 

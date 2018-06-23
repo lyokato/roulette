@@ -32,17 +32,30 @@ defmodule Roulette.NatsClient do
   @spec pub(GenServer.server, String.t, binary(), keyword()) :: :ok
   def pub(pid, topic, message, opts \\ []), do: GenServer.call(pid, {:pub, topic, message, opts})
 
-  @spec request(GenServer.server, String.t, binary(), keyword()) :: {:ok, message} | {:error, :timeout}
+  @spec request(GenServer.server, String.t, binary(), keyword()) ::
+    {:ok, message} | {:error, :timeout}
   def request(pid, topic, body, opts \\ []) do
+
     receive_timeout = Keyword.get(opts, :receive_timeout, 60_000)
-    inbox = "INBOX-#{:crypto.strong_rand_bytes(12) |> Base.encode64}"
-    {:ok, subscription} = GenServer.call(pid, {:request, %{recipient: self(), inbox: inbox, body: body, topic: topic}})
+
+    inbox = gen_inbox()
+
+    {:ok, subscription} =
+      GenServer.call(pid, {:request, %{recipient: self(), inbox: inbox, body: body, topic: topic}})
+
     receive do
-      {:msg, %{topic: ^inbox}=msg} -> {:ok, msg}
+      {:msg, %{topic: ^inbox} = msg} -> {:ok, msg}
       after receive_timeout ->
         :ok = unsub(pid, subscription)
         {:error, :timeout}
     end
+
+  end
+
+  defp gen_inbox() do
+    random  = :crypto.strong_rand_bytes(12)
+    encoded = Base.encode64(random)
+    "INBOX-#{encoded}"
   end
 
   @spec unsub(GenServer.server, non_neg_integer(), keyword()) :: :ok
@@ -71,9 +84,9 @@ defmodule Roulette.NatsClient do
   end
 
   @impl GenServer
-  def handle_info({:tcp, socket, data}, %{socket: socket}=state) do
+  def handle_info({:tcp, socket, data}, %{socket: socket} = state) do
     data_packets = receive_additional_tcp_data(socket, [data], 10)
-    new_state = Enum.reduce(data_packets, state, fn(data, %{parser: parser}=state) ->
+    new_state = Enum.reduce(data_packets, state, fn(data, %{parser: parser} = state) ->
       {new_parser, messages} = Parser.parse(parser, data)
       new_state = %{state | parser: new_parser}
       Enum.reduce(messages, new_state, &process_message/2)
@@ -98,7 +111,7 @@ defmodule Roulette.NatsClient do
   end
 
   @impl GenServer
-  def handle_call({:sub, receiver, topic, opts}, _from, %{next_sid: sid}=state) do
+  def handle_call({:sub, receiver, topic, opts}, _from, %{next_sid: sid} = state) do
 
     sub = Command.build(:sub, topic, sid, opts)
 
@@ -136,7 +149,7 @@ defmodule Roulette.NatsClient do
     end
   end
 
-  def handle_call({:unsub, sid, opts}, _from, %{receivers: receivers}=state) do
+  def handle_call({:unsub, sid, opts}, _from, %{receivers: receivers} = state) do
     case Map.has_key?(receivers, sid) do
 
       false -> {:reply, :ok, state}
@@ -187,29 +200,29 @@ defmodule Roulette.NatsClient do
   end
   defp socket_write(%{socket: socket}, iodata), do: :gen_tcp.send(socket, iodata)
 
-  defp add_subscription_to_state(%{receivers: receivers}=state, sid, pid) do
+  defp add_subscription_to_state(%{receivers: receivers} = state, sid, pid) do
     receivers = Map.put(receivers, sid, %{recipient: pid, unsub_after: :infinity})
     %{state | receivers: receivers}
   end
 
-  defp cleanup_subscription_from_state(%{receivers: receivers}=state, sid, []) do
+  defp cleanup_subscription_from_state(%{receivers: receivers} = state, sid, []) do
     receivers = Map.delete(receivers, sid)
     %{state | receivers: receivers}
   end
-  defp cleanup_subscription_from_state(%{receivers: receivers}=state, sid, [max_messages: n]) do
+  defp cleanup_subscription_from_state(%{receivers: receivers} = state, sid, [max_messages: n]) do
     receivers = put_in(receivers, [sid, :unsub_after], n)
     %{state | receivers: receivers}
   end
 
   defp process_message({:msg, topic, sid, reply_to, body}, state) do
-    unless is_nil(state.receivers[sid]) do
-      send state.receivers[sid].recipient, {:msg, %{topic: topic, body: body, reply_to: reply_to, gnat: self()}}
-      update_subscriptions_after_delivering_message(state, sid)
-    else
+    if is_nil(state.receivers[sid]) do
       # This can be caused on nominal situation
       # Logger.error "#{__MODULE__} got message for sid #{sid}, but that is no longer registered"
       Logger.info "#{__MODULE__} got message for sid #{sid}, but that is no longer registered"
       state
+    else
+      send state.receivers[sid].recipient, {:msg, %{topic: topic, body: body, reply_to: reply_to, gnat: self()}}
+      update_subscriptions_after_delivering_message(state, sid)
     end
   end
   defp process_message(:ping, state) do
@@ -250,7 +263,7 @@ defmodule Roulette.NatsClient do
     end
   end
 
-  defp update_subscriptions_after_delivering_message(%{receivers: receivers}=state, sid) do
+  defp update_subscriptions_after_delivering_message(%{receivers: receivers} = state, sid) do
     receivers = case get_in(receivers, [sid, :unsub_after]) do
                   :infinity -> receivers
                   1 -> Map.delete(receivers, sid)
