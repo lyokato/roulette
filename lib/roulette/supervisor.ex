@@ -1,7 +1,5 @@
 defmodule Roulette.Supervisor do
 
-  require Logger
-
   use Supervisor
 
   alias Roulette.ClusterChooser
@@ -9,23 +7,23 @@ defmodule Roulette.Supervisor do
   alias Roulette.ClusterPool
   alias Roulette.Config
   alias Roulette.SubscriptionSupervisor
-  alias Roulette.Registry
 
   @type role :: :both | :subscriber | :publisher
 
-  def start_link(module, opts) do
+  def start_link([module, conf, opts]) do
     name = Module.concat(module, Supervisor)
-    Supervisor.start_link(__MODULE__, [module, opts], name: name)
+    Supervisor.start_link(__MODULE__, [module, conf, opts], name: name)
   end
 
-  def init([module, opts]) do
-    children(module, opts)
+  def init([module, conf, opts]) do
+    children(module, conf, opts)
     |> Supervisor.init(strategy: :one_for_one)
   end
 
-  defp children(module, opts) do
+  defp children(module, conf, opts) do
 
-    # check :role
+    Config.store(module, conf)
+
     role = Keyword.get(opts, :role, :both)
 
     enabled_roles = case role do
@@ -34,28 +32,32 @@ defmodule Roulette.Supervisor do
       :subscriber -> [:subscriber]
     end
 
-    connection_conf = Keyword.get(opts, :connection, [])
-
-    # check :servers
-    servers = Keyword.get(connection_conf, :servers)
+    servers = Config.get(module, :connection, :servers)
     if length(servers) == 0 do
       raise "<Roulette> you should prepare at least one host, check your :servers configuration."
     end
 
     ClusterChooser.init(module, servers)
 
+    conf = [
+      pool_size:        Config.get(module, :connection, :pool_size),
+      ping_interval:    Config.get(module, :connection, :ping_interval),
+      max_ping_failure: Config.get(module, :connection, :max_ping_failure),
+      show_debug_log:   Config.get(module, :connection, :show_debug_log)
+    ]
+
     cluster_supervisors =
       enabled_roles
       |> Enum.flat_map(fn role ->
         servers
         |> Enum.map(fn server ->
-          cluster_supervisor(module, role, server, connection_conf)
+          cluster_supervisor(module, role, server, conf)
         end)
       end)
 
     if role != :publisher do
       cluster_supervisors ++ [
-        {Registry, [module]},
+        {Registry, keys: :unique, name: Roulette.Registry.name(module)},
         {SubscriptionSupervisor, [module]}
       ]
     else
@@ -80,6 +82,7 @@ defmodule Roulette.Supervisor do
       [name:             name,
        host:             host,
        port:             port,
+       module:           module,
        ping_interval:    ping_interval,
        max_ping_failure: max_ping_failure,
        show_debug_log:   show_debug_log,

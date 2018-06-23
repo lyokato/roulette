@@ -3,6 +3,8 @@ defmodule Roulette.Connection do
   require Logger
 
   use GenServer
+
+  alias Roulette.Config
   alias Roulette.NatsClient
 
   @reconnection_interval 100
@@ -17,34 +19,33 @@ defmodule Roulette.Connection do
     end
   end
 
-  defstruct host: "",
-            port: nil,
-            nats: nil,
-            show_debug_log: false,
-            ping_count: 0,
+  defstruct host:             "",
+            module:           nil,
+            port:             nil,
+            nats:             nil,
+            show_debug_log:   false,
+            ping_count:       0,
             max_ping_failure: 2,
-            ping_interval: 0
+            ping_interval:    0
 
+  @spec start_link(Keyword.t) :: GenServer.on_start
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @impl GenServer
   def init(opts) do
-
     Process.flag(:trap_exit, true)
-
     state = new(opts)
-
     send self(), :connect
-
     {:ok, state}
-
   end
 
+  @impl GenServer
   def handle_info(:connect, state) do
 
     nats_opts =
-      Roulette.Config.merge_nats_config(%{
+      Config.merge_nats_config(state.module, %{
         host: state.host,
         port: state.port
       })
@@ -127,6 +128,7 @@ defmodule Roulette.Connection do
     {:noreply, state}
   end
 
+  @impl GenServer
   def handle_call(:get_connection, _from, %{nats: nil}=state) do
     {:reply, {:error, :not_found}, state}
   end
@@ -134,6 +136,7 @@ defmodule Roulette.Connection do
     {:reply, {:ok, nats}, state}
   end
 
+  @impl GenServer
   def terminate(reason, state) do
     if state.show_debug_log do
       Logger.debug "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
@@ -143,22 +146,22 @@ defmodule Roulette.Connection do
 
   defp new(opts) do
 
-    host = Keyword.fetch!(opts, :host)
-    port = Keyword.fetch!(opts, :port)
-
-    ping_interval = Keyword.fetch!(opts, :ping_interval)
-    show_debug_log = Keyword.fetch!(opts, :show_debug_log)
-
+    host             = Keyword.fetch!(opts, :host)
+    port             = Keyword.fetch!(opts, :port)
+    module           = Keyword.fetch!(opts, :module)
+    ping_interval    = Keyword.fetch!(opts, :ping_interval)
+    show_debug_log   = Keyword.fetch!(opts, :show_debug_log)
     max_ping_failure = Keyword.fetch!(opts, :max_ping_failure)
 
     %__MODULE__{
-      host: host,
-      port: port,
-      nats: nil,
-      show_debug_log: show_debug_log,
-      ping_interval: ping_interval,
+      host:             host,
+      port:             port,
+      nats:             nil,
+      module:           module,
+      show_debug_log:   show_debug_log,
+      ping_interval:    ping_interval,
       max_ping_failure: max_ping_failure,
-      ping_count: 0,
+      ping_count:       0,
     }
 
   end

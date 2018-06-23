@@ -17,8 +17,7 @@ defmodule Roulette.Config do
     }
 
   @default_connection_values [
-      ring: [],
-      reserved_ring: [],
+      servers: [],
       ping_interval: 5_000,
       max_ping_failure: 2,
       show_debug_log: false,
@@ -47,13 +46,20 @@ defmodule Roulette.Config do
       restart: :temporary
     ]
 
-  def get(type, key) do
-    get_category(type) |> Keyword.fetch!(key)
+  def get(module, type, key) do
+    name = category_name(module, type)
+    case FastGlobal.get(name, nil) do
+      nil -> raise "<Roulette.Config> Unknown type: #{type}"
+      cat -> case Keyword.get(cat, key) do
+        nil -> raise "<Roulette.Config> Unknown key: #{key}"
+        val -> val
+      end
+    end
   end
 
-  @spec merge_nats_config(host) :: nats_config
-  def merge_nats_config(host) do
-    nats_config = get(:connection, :nats)
+  @spec merge_nats_config(module, host) :: nats_config
+  def merge_nats_config(module, host) do
+    nats_config = get(module, :connection, :nats)
     @nats_config_keys
     |> Enum.reduce(host, &(Map.put(&2, &1, Map.fetch!(nats_config, &1))))
   end
@@ -68,25 +74,6 @@ defmodule Roulette.Config do
     @default_connection_values
   end
 
-  defp get_category(type) do
-    name = Module.concat(Roulette.Config, "#{type}")
-    case FastGlobal.get(name, nil) do
-      nil ->
-        val = get_raw_category(type)
-        FastGlobal.put(name, val)
-        val
-      val -> val
-    end
-  end
-
-  defp get_raw_category(type) do
-    defaults = default_values(type)
-    case Application.get_env(:roulette, type) do
-      nil -> defaults
-      val -> Keyword.merge(defaults, val)
-    end
-  end
-
   def get_host_and_port(target) when is_binary(target) do
     {target, @default_port}
   end
@@ -99,22 +86,40 @@ defmodule Roulette.Config do
   @doc ~S"""
   Load handler's configuration.
   """
-  @spec load(module, any) :: any
+  @spec load(module, any) :: :ok
   def load(module, opts) do
-    config = Keyword.fetch!(opts, :otp_app)
+    conf = opts
+           |> Keyword.fetch!(:otp_app)
            |> Application.get_env(module, [])
+
+    conn = load_category_conf(conf, :connection)
+    pub  = load_category_conf(conf, :publisher)
+    sub  = load_category_conf(conf, :subscriber)
+    {conn, pub, sub}
   end
 
-  @doc ~S"""
-  Ensure passed module is compiled already.
-  Or else, this function raise an error.
-  """
-  @spec ensure_module_loaded(module) :: :ok
-  def ensure_module_loaded(module) do
-    unless Code.ensure_loaded?(module) do
-      raise ArgumentError, "#{module} not compiled, ensure the name is correct and it's included in project dependencies."
-    end
+  def store(module, {conn, pub, sub}) do
+    store_category_conf(module, :connection, conn)
+    store_category_conf(module, :publisher,  pub)
+    store_category_conf(module, :subscriber, sub)
     :ok
+  end
+
+  defp store_category_conf(module, type, val) do
+    module |> category_name(type) |> FastGlobal.put(val)
+    :ok
+  end
+
+  defp load_category_conf(config, type) do
+    defaults = default_values(type)
+    case Keyword.get(config, :connection) do
+      nil -> defaults
+      val -> Keyword.merge(defaults, val)
+    end
+  end
+
+  defp category_name(module, type) do
+    Module.concat([module, Config, "#{type}"])
   end
 
 end

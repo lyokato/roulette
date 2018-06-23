@@ -1,57 +1,39 @@
 defmodule Roulette.Subscriber do
 
-  alias Roulette.ClusterPool
+  require Logger
+
   alias Roulette.Registry
   alias Roulette.SubscriptionSupervisor
 
-  @spec sub(module :: module,
-            topic  :: String.t) :: Supervisor.on_start_child
-
+  @spec sub(module, String.t) ::
+    DynamicSupervisor.on_start_child
   def sub(module, topic) do
-
     consumer = self()
-
     case Registry.lookup(module, consumer, topic) do
-
-      {:error, :not_found} ->
-
-        pool = ClusterPool.choose(module, :subscriber, topic)
-
-        SubscriptionSupervisor.start_child(
-          module,
-          pool,
-          consumer,
-          topic
-        )
-
-      {:ok, pid} ->
-
-        {:error, {:already_started, pid}}
-
+      {:error, :not_found} -> do_sub(module, consumer, topic)
+      {:ok, pid}           -> {:error, {:already_started, pid}}
     end
   end
 
-  @spec unsub(module :: module,
-              topic  :: pid) :: :ok
-
-  def unsub(module, subscription) when is_pid(subscription) do
-    SubscriptionSupervisor.terminate_child(module, subscription)
-    :ok
+  defp do_sub(module, consumer, topic) do
+    SubscriptionSupervisor.start_child(
+      module,
+      consumer,
+      topic
+    )
   end
 
-  @spec unsub(modle :: module,
-              topic :: String.t) :: :ok
+  @spec unsub(module, pid) :: :ok | {:error, :not_found}
+  def unsub(module, subscription) when is_pid(subscription) do
+    SubscriptionSupervisor.terminate_child(module, subscription)
+  end
 
+  @spec unsub(module, String.t) :: :ok | {:error, :not_found}
   def unsub(module, topic) when is_binary(topic) do
-
     consumer = self()
-
     case Registry.lookup(module, consumer, topic) do
-
       {:error, :not_found} -> :ok
-
-      {:ok, pid} -> unsub(module, pid)
-
+      {:ok, pid}           -> unsub(module, pid)
     end
   end
 

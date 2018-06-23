@@ -4,6 +4,7 @@ defmodule Roulette.Subscription do
 
   use GenServer
 
+  alias Roulette.ClusterPool
   alias Roulette.Connection
   alias Roulette.Config
   alias Roulette.NatsClient
@@ -16,25 +17,20 @@ defmodule Roulette.Subscription do
   @checkout_timeout 5_100
 
   defstruct topic:          "",
+            module:         nil,
             consumer:       nil,
             show_debug_log: false,
             restart:        :permanent,
-            pool:           nil,
             nats:           nil,
             ref:            nil
 
-  def child_spec(_opts) do
-    %{
-      id: __MODULE__,
-      start: {__MODULE__, :start_link, []},
-      restart: :temporary
-    }
-  end
 
+  @spec start_link(Keyword.t) :: GenServer.on_start
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @impl GenServer
   def init(opts) do
 
     state = new(opts)
@@ -42,7 +38,7 @@ defmodule Roulette.Subscription do
     Process.flag(:trap_exit, true)
 
     Registry.register(
-      opts.module,
+      state.module,
       state.consumer,
       state.topic
     )
@@ -53,12 +49,13 @@ defmodule Roulette.Subscription do
       Process.monitor(state.consumer)
     end
 
-    start_setup()
+    start_setup(state)
 
     {:ok, state}
 
   end
 
+  @impl GenServer
   def handle_info({:setup, attempts, max_retry}, state) do
     setup(state, attempts, max_retry)
   end
@@ -75,7 +72,7 @@ defmodule Roulette.Subscription do
       Logger.debug "<Roulette.Subscription:#{inspect self()}> DOWN(nats:#{inspect pid}) start to reconnect"
     end
     Process.demonitor(monitor_ref)
-    start_setup()
+    start_setup(state)
     {:noreply, %{state| nats: nil, ref: nil}}
   end
 
@@ -112,6 +109,7 @@ defmodule Roulette.Subscription do
     {:noreply, state}
   end
 
+  @impl GenServer
   def terminate(_reason, %{ref: nil}=state) do
     if state.show_debug_log do
       Logger.debug "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
@@ -127,14 +125,19 @@ defmodule Roulette.Subscription do
   end
 
   defp new(opts) do
+
+    consumer = Keyword.fetch!(opts, :consumer)
+    topic    = Keyword.fetch!(opts, :topic)
+    module   = Keyword.fetch!(opts, :module)
+
     %__MODULE__{
-      pool:           opts.pool,
-      consumer:       opts.consumer,
-      topic:          opts.topic,
+      consumer:       consumer,
+      topic:          topic,
+      module:         module,
       ref:            nil,
       nats:           nil,
-      restart:        Config.get(:subscriber, :restart),
-      show_debug_log: Config.get(:subscriber, :show_debug_log),
+      restart:        Config.get(module, :subscriber, :restart),
+      show_debug_log: Config.get(module, :subscriber, :show_debug_log),
     }
   end
 
@@ -144,10 +147,13 @@ defmodule Roulette.Subscription do
 
       {:ok, nats, ref} ->
         Process.monitor(nats)
+        if state.show_debug_log do
+          Logger.debug "<Roulette.Subscription:#{inspect self()}> start subscription on #{state.topic}"
+        end
         {:noreply, %{state | ref: ref, nats: nats}}
 
       _other when attempts < max_retry ->
-        retry_setup(attempts, max_retry)
+        retry_setup(state.module, attempts, max_retry)
         {:noreply, state}
 
       _other ->
@@ -157,9 +163,15 @@ defmodule Roulette.Subscription do
 
   end
 
+  defp choose_pool(state) do
+    ClusterPool.choose(state.module, :subscriber, state.topic)
+  end
+
   defp do_setup(state) do
     try do
-      :poolboy.transaction(state.pool, fn conn ->
+      state
+      |> choose_pool()
+      |> :poolboy.transaction(fn conn ->
 
         case Connection.get(conn) do
 
@@ -213,22 +225,20 @@ defmodule Roulette.Subscription do
     end
   end
 
-  defp start_setup() do
+  defp start_setup(state) do
     attempts  = 0
-    max_retry = Config.get(:subscriber, :max_retry)
+    max_retry = Config.get(state.module, :subscriber, :max_retry)
     send self(), {:setup, attempts, max_retry}
   end
 
-  defp retry_setup(attempts, max_retry) do
+  defp retry_setup(module, attempts, max_retry) do
     message = {:setup, attempts + 1, max_retry}
-    backoff = calc_backoff(attempts)
+    backoff = calc_backoff(module, attempts)
     Process.send_after(self(), message, backoff)
   end
 
-  defp calc_backoff(attempts) do
-    base = Config.get(:subscriber, :base_backoff)
-    max  = Config.get(:subscriber, :max_backoff)
-    Backoff.calc(base, max, attempts)
+  defp calc_backoff(attempts, module) do
+    Backoff.calc(module, :subscriber, attempts)
   end
 
 end

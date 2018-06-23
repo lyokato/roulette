@@ -1,7 +1,7 @@
 defmodule Roulette.Publisher do
 
   @moduledoc ~S"""
-  Publisher module. this provides just a single function, `pub/2`.
+  Publisher module. this provides just a single function,
   """
 
   require Logger
@@ -28,19 +28,15 @@ defmodule Roulette.Publisher do
   limit number that you set on your configuration as `max_retry`.
   """
 
-  @spec pub(
-    module :: module,
-    topic  :: String.t,
-    data   :: binary
-  ) :: :ok | :error
-
+  @spec pub(module, String.t, binary) :: :ok | :error
   def pub(module, topic, data) do
 
     pool      = ClusterPool.choose(module, :publisher, topic)
-    max_retry = Config.get(:publisher, :max_retry)
+    max_retry = Config.get(module, :publisher, :max_retry)
     attempts  = 0
 
     pub_on_cluster(
+      module,
       pool,
       topic,
       data,
@@ -50,15 +46,15 @@ defmodule Roulette.Publisher do
 
   end
 
-  defp pub_on_cluster(pool, topic, data, attempts, max_retry) do
+  defp pub_on_cluster(module, pool, topic, data, attempts, max_retry) do
 
     case do_pub_on_cluster(pool, topic, data) do
 
       :ok -> :ok
 
       :error when attempts < max_retry ->
-        attempts |> calc_backoff() |> Process.sleep()
-        pub_on_cluster(pool, topic, data, attempts + 1, max_retry)
+        attempts |> calc_backoff(module) |> Process.sleep()
+        pub_on_cluster(module, pool, topic, data, attempts + 1, max_retry)
 
       :error ->
         Logger.error "<Roulette.Publisher> failed to pub eventually"
@@ -102,10 +98,8 @@ defmodule Roulette.Publisher do
     end
   end
 
-  defp calc_backoff(attempts) do
-    base = Config.get(:publisher, :base_backoff)
-    max  = Config.get(:publisher, :max_backoff)
-    Backoff.calc(base, max, attempts)
+  defp calc_backoff(attempts, module) do
+    Backoff.calc(module, :publisher, attempts)
   end
 
   defp do_nats_pub(nats, topic, data) do
