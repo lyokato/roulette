@@ -1,22 +1,20 @@
 use Mix.Config
 
-config :roulette, :connection,
-  ring: [
-    [host: "localhost", port: 4222],
+config :roulette, Roulette.Test.PubSub1,
+  role: :both,
+  servers: [
+    [host: "localhost", port: 4222]
   ],
   retry_interval: 1_000,
   pool_size: 5,
-  gnat: %{
-    connection_timeout: 5_000,
-    tls: false,
-    ssl_opts: [],
-    tcp_opts: [:binary, {:nodelay, true}]
-  }
+  show_debug_log: true
 
-config :roulette, :subscriber,
-  max_retry: 5,
-  retry_interval: 2_000,
-  restart: :temporary
-
-config :roulette, :publisher,
-  max_retry: 5
+config :roulette, Roulette.Test.PubSub2,
+  role: :both,
+  servers: [
+    [host: "localhost", port: 4222],
+    [host: "localhost", port: 4223]
+  ],
+  retry_interval: 1_000,
+  pool_size: 5,
+  show_debug_log: true

@@ -1,36 +1,42 @@
 defmodule Roulette.Supervisor do
 
-  require Logger
-
   use Supervisor
 
-  alias Roulette.AtomGenerator
   alias Roulette.ClusterChooser
   alias Roulette.ClusterSupervisor
+  alias Roulette.ClusterPool
   alias Roulette.Config
   alias Roulette.SubscriptionSupervisor
 
   @type role :: :both | :subscriber | :publisher
 
-  def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  @spec child_spec(module, Keyword.t) :: Supervisor.child_spec
+  def child_spec(module, conf) do
+    name = Module.concat(module, Supervisor)
+    %{
+      id: name,
+      start: {__MODULE__, :start_link, [module, conf]},
+      type: :supervisor
+    }
   end
 
-  def init(opts) do
-    children(opts) |> Supervisor.init(strategy: :one_for_one)
+  @spec start_link(module, Keyword.t) :: Supervisor.on_start
+  def start_link(module, conf) do
+    name = Module.concat(module, Supervisor)
+    Supervisor.start_link(__MODULE__, [module, conf], name: name)
   end
 
-  defp children(opts) do
+  @impl Supervisor
+  def init([module, conf]) do
+    children = children(module, conf)
+    Supervisor.init(children, strategy: :one_for_one)
+  end
 
-    role = Keyword.get(opts, :role, :both)
+  defp children(module, conf) do
 
-    ring = Config.get(:connection, :ring)
+    Config.store(module, conf)
 
-    if length(ring) == 0 do
-      raise "<Roulette> you should prepare at least one host, check your :ring configuration."
-    end
-
-    ClusterChooser.Default.init(ring)
+    role = Config.get(module, :role)
 
     enabled_roles = case role do
       :both       -> [:publisher, :subscriber]
@@ -38,82 +44,57 @@ defmodule Roulette.Supervisor do
       :subscriber -> [:subscriber]
     end
 
-    pool_size        = Config.get(:connection, :pool_size)
-    ping_interval    = Config.get(:connection, :ping_interval)
-    max_ping_failure = Config.get(:connection, :max_ping_failure)
-    show_debug_log   = Config.get(:connection, :show_debug_log)
+    servers = Config.get(module, :servers)
+    if Enum.empty?(servers) do
+      raise "<Roulette> you should prepare at least one host, check your :servers configuration."
+    end
 
-    cluster_supervisors = enabled_roles |> Enum.flat_map(fn role ->
+    ClusterChooser.init(module, servers)
 
-      ring |> Enum.map(fn target ->
+    conf = [
+      pool_size:        Config.get(module, :pool_size),
+      ping_interval:    Config.get(module, :ping_interval),
+      max_ping_failure: Config.get(module, :max_ping_failure),
+      show_debug_log:   Config.get(module, :show_debug_log)
+    ]
 
-        cluster_supervisor(
-          role,
-          target,
-          pool_size,
-          show_debug_log,
-          ping_interval,
-          max_ping_failure
-        )
-
+    cluster_supervisors =
+      enabled_roles
+      |> Enum.flat_map(fn role ->
+        servers
+        |> Enum.map(fn server ->
+          cluster_supervisor(module, role, server, conf)
+        end)
       end)
 
-    end)
-
-    FastGlobal.put(:roulette_use_reserved_ring, false)
-
     if role != :publisher do
-
-      reserved_ring = Config.get(:connection, :reserved_ring)
-
-      if length(reserved_ring) > 0 do
-
-        FastGlobal.put(:roulette_use_reserved_ring, true)
-
-        ClusterChooser.Reserved.init(reserved_ring)
-
-
-        reserved_cluster_supervisors =
-          reserved_ring |> Enum.map(fn target ->
-
-            cluster_supervisor(
-              :subscriber,
-              target,
-              pool_size,
-              show_debug_log,
-              ping_interval,
-              max_ping_failure
-            )
-
-          end)
-
-        cluster_supervisors
-          ++ reserved_cluster_supervisors
-          ++ [{SubscriptionSupervisor.Default,  []},
-              {SubscriptionSupervisor.Reserved, []}]
-
-      else
-
-        cluster_supervisors ++ [{SubscriptionSupervisor.Default, []}]
-
-      end
+      cluster_supervisors ++ [
+        {Registry, keys: :unique, name: Roulette.Registry.name(module)},
+        {SubscriptionSupervisor, [module]}
+      ]
     else
       cluster_supervisors
     end
 
   end
 
-  defp cluster_supervisor(role, target, pool_size, show_debug_log, ping_interval, max_ping_failure) do
+  defp cluster_supervisor(module, role, server, conf) do
 
-    {host, port} = Config.get_host_and_port(target)
+    pool_size        = Keyword.get(conf, :pool_size)
+    ping_interval    = Keyword.get(conf, :ping_interval)
+    max_ping_failure = Keyword.get(conf, :max_ping_failure)
+    show_debug_log   = Keyword.get(conf, :show_debug_log)
 
-    name = AtomGenerator.cluster_supervisor(role, host, port)
-    pool = AtomGenerator.cluster_pool(role, host, port)
+    {host, port} = Config.get_host_and_port(server)
+
+    name = ClusterSupervisor.name(module, role, host, port)
+    pool = ClusterPool.name(module, role, host, port)
 
     {ClusterSupervisor,
       [name:             name,
        host:             host,
        port:             port,
+       module:           module,
        ping_interval:    ping_interval,
        max_ping_failure: max_ping_failure,
        show_debug_log:   show_debug_log,
