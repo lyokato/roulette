@@ -1,29 +1,55 @@
 defmodule Roulette do
 
-  @moduledoc """
-  Roulette is a HashRing-ed gnatsd-cluster client library
+  defmacro __using__(opts \\ []) do
+    quote location: :keep, bind_quoted: [opts: opts] do
 
-  See https://github.com/lyokato/roulette
-  """
+      @config Roulette.Config.load(__MODULE__, opts)
 
-  def child_spec(), do: child_spec([])
-  def child_spec(opts) do
-    Roulette.Supervisor.child_spec(opts)
-  end
+      @spec pub(String.t, any) :: :ok | :error
+      def pub(topic, data) do
+        Roulette.Publisher.pub(__MODULE__, topic, data)
+      end
 
-  @spec pub(String.t, any) :: :ok | :error
-  def pub(topic, data) do
-    Roulette.Publisher.pub(topic, data)
-  end
+      @spec pub!(String.t, any) :: :ok
+      def pub!(topic, data) do
+        case pub(topic, data) do
+          :ok    -> :ok
+          :error -> raise Roulette.Error, "failed to pub: #{topic}"
+        end
+      end
 
-  @spec sub(String.t) :: Supervisor.on_start_child
-  def sub(topic) do
-    Roulette.Subscriber.sub(topic)
-  end
+      @spec sub(String.t) :: Supervisor.on_start
+      def sub(topic) do
+        Roulette.Subscriber.sub(__MODULE__, topic)
+      end
 
-  @spec unsub(pid | String.t) :: :ok
-  def unsub(pid_or_topic) do
-    Roulette.Subscriber.unsub(pid_or_topic)
+      @spec sub!(String.t) :: pid
+      def sub!(topic) do
+        case sub(topic) do
+          {:ok, pid} -> pid
+          other      -> raise Roulette.Error, "failed to sub: #{inspect other}"
+        end
+      end
+
+      @spec unsub(String.t | pid) :: :ok | {:error, :not_found}
+      def unsub(topic_or_pid) do
+        Roulette.Subscriber.unsub(__MODULE__, topic_or_pid)
+      end
+
+      @spec unsub!(String.t | pid) :: :ok
+      def unsub!(topic_or_pid) do
+        case unsub(topic_or_pid) do
+          :ok   -> :ok
+          other -> raise Roulette.Error, "failed to unsub: #{inspect other}"
+        end
+      end
+
+      @spec child_spec(any) :: Supervisor.child_spec
+      def child_spec(_opts) do
+        Roulette.Supervisor.child_spec(__MODULE__, @config)
+      end
+
+    end
   end
 
 end
