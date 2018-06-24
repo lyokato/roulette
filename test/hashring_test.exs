@@ -10,7 +10,7 @@ defmodule Roulette.Test.HashRingTest do
     end
   end
 
-  test "hash ring" do
+  test "reached through hash-ring-ed servers" do
 
     {:ok, s1} = Session2.start_link(:s1)
     {:ok, s2} = Session2.start_link(:s2)
@@ -30,6 +30,7 @@ defmodule Roulette.Test.HashRingTest do
       Process.sleep(20)
     end)
 
+    # received through multiple gnatsd server
     assert Session2.stack(s1) |> length == 20
     assert Session2.stack(s2) |> Enum.empty? == true
 
