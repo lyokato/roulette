@@ -2,14 +2,10 @@ defmodule Roulette.Util.Backoff do
 
   alias Roulette.Config
 
-  @type category :: :subscriber
-                  | :publisher
-                  | :connection
-
-  @spec calc(module, category, non_neg_integer) :: pos_integer
-  def calc(module, type, attempts) do
-    base = Config.get(module, type, :base_backoff)
-    max  = Config.get(module, type, :max_backoff)
+  @spec calc(module, non_neg_integer) :: pos_integer
+  def calc(module, attempts) do
+    base = Config.get(module, :base_backoff)
+    max  = Config.get(module, :max_backoff)
     do_calc(base, max, attempts)
   end
 

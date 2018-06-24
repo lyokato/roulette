@@ -1,35 +1,20 @@
 use Mix.Config
 
 config :roulette, Roulette.Test.PubSub1,
-  connection: [
-    servers: [
-      [host: "localhost", port: 4222]
-    ],
-    retry_interval: 1_000,
-    pool_size: 5,
-    show_debug_log: true
+  role: :both,
+  servers: [
+    [host: "localhost", port: 4222]
   ],
-  publisher: [
-    show_debug_log: true
-  ],
-  subscriber: [
-    show_debug_log: true
-  ]
+  retry_interval: 1_000,
+  pool_size: 5,
+  show_debug_log: true
 
 config :roulette, Roulette.Test.PubSub2,
-  connection: [
-    servers: [
-      [host: "localhost", port: 4222],
-      [host: "localhost", port: 4223]
-    ],
-    retry_interval: 1_000,
-    pool_size: 5,
-    show_debug_log: true
+  role: :both,
+  servers: [
+    [host: "localhost", port: 4222],
+    [host: "localhost", port: 4223]
   ],
-  publisher: [
-    show_debug_log: true
-  ],
-  subscriber: [
-    show_debug_log: true
-  ]
-
+  retry_interval: 1_000,
+  pool_size: 5,
+  show_debug_log: true

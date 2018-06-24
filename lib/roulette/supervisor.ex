@@ -10,33 +10,33 @@ defmodule Roulette.Supervisor do
 
   @type role :: :both | :subscriber | :publisher
 
-  @spec child_spec(module, term, Keyword.t) :: Supervisor.child_spec
-  def child_spec(module, conf, opts) do
+  @spec child_spec(module, Keyword.t) :: Supervisor.child_spec
+  def child_spec(module, conf) do
     name = Module.concat(module, Supervisor)
     %{
       id: name,
-      start: {__MODULE__, :start_link, [module, conf, opts]},
+      start: {__MODULE__, :start_link, [module, conf]},
       type: :supervisor
     }
   end
 
-  @spec start_link(module, term, Keyword.t) :: Supervisor.on_start
-  def start_link(module, conf, opts) do
+  @spec start_link(module, Keyword.t) :: Supervisor.on_start
+  def start_link(module, conf) do
     name = Module.concat(module, Supervisor)
-    Supervisor.start_link(__MODULE__, [module, conf, opts], name: name)
+    Supervisor.start_link(__MODULE__, [module, conf], name: name)
   end
 
   @impl Supervisor
-  def init([module, conf, opts]) do
-    children = children(module, conf, opts)
+  def init([module, conf]) do
+    children = children(module, conf)
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  defp children(module, conf, opts) do
+  defp children(module, conf) do
 
     Config.store(module, conf)
 
-    role = Keyword.get(opts, :role, :both)
+    role = Config.get(module, :role)
 
     enabled_roles = case role do
       :both       -> [:publisher, :subscriber]
@@ -44,7 +44,7 @@ defmodule Roulette.Supervisor do
       :subscriber -> [:subscriber]
     end
 
-    servers = Config.get(module, :connection, :servers)
+    servers = Config.get(module, :servers)
     if Enum.empty?(servers) do
       raise "<Roulette> you should prepare at least one host, check your :servers configuration."
     end
@@ -52,10 +52,10 @@ defmodule Roulette.Supervisor do
     ClusterChooser.init(module, servers)
 
     conf = [
-      pool_size:        Config.get(module, :connection, :pool_size),
-      ping_interval:    Config.get(module, :connection, :ping_interval),
-      max_ping_failure: Config.get(module, :connection, :max_ping_failure),
-      show_debug_log:   Config.get(module, :connection, :show_debug_log)
+      pool_size:        Config.get(module, :pool_size),
+      ping_interval:    Config.get(module, :ping_interval),
+      max_ping_failure: Config.get(module, :max_ping_failure),
+      show_debug_log:   Config.get(module, :show_debug_log)
     ]
 
     cluster_supervisors =

@@ -32,7 +32,7 @@ defmodule Roulette.Publisher do
   def pub(module, topic, data) do
 
     pool      = ClusterPool.choose(module, :publisher, topic)
-    max_retry = Config.get(module, :publisher, :max_retry)
+    max_retry = Config.get(module, :max_retry)
     attempts  = 0
 
     pub_on_cluster(
@@ -99,7 +99,7 @@ defmodule Roulette.Publisher do
   end
 
   defp calc_backoff(attempts, module) do
-    Backoff.calc(module, :publisher, attempts)
+    Backoff.calc(module, attempts)
   end
 
   defp do_nats_pub(nats, topic, data) do

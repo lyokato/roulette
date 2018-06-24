@@ -35,20 +35,12 @@ Setup configuration like following
 
 ```elixir
 config :my_app, MyApp.PubSub,
-  connection: [
     servers: [
       [host: "gnatsd1.example.org", port: 4222],
       [host: "gnatsd2.example.org", port: 4222],
       [host: "gnatsd3.example.org", port: 4222]
     ]
     # ...
-  ],
-  publisher: [
-    # publisher specific configuration
-  ],
-  subscriber: [
-    # subscriber specific configuration
-  ],
 ```
 
 ## Application
@@ -143,12 +135,10 @@ Put your load-balancers' hostname into it.
 
 ```elixir
 config :my_app, MyApp.PubSub,
-  connection: [
     servers: [
       "gnatsd-cluster1.example.org",
       "gnatsd-cluster2.example.org"
     ]
-  ]
 
 ```
 
@@ -156,12 +146,10 @@ Or else, you can use keyword list for each host.
 
 ```elixir
 config :my_app, MyApp.PubSub,
-  connection: [
     servers: [
       [host: "gnatsd-cluster1.example.org", port: 4222],
       [host: "gnatsd-cluster2.example.org", port: 4222]
     ]
-  ]
 ```
 
 If there is no `port` setting, 4222 is set by defaut.
@@ -172,8 +160,8 @@ If there is no `port` setting, 4222 is set by defaut.
 If you want to arrange them, the setting become like following.
 
 ```elixir
-config :roulette, :connection,
-  ring: [
+config :my_app, MyApp.PubSub,
+  servers: [
     [host: "gnatsd-cluster1.example.org", port: 4222],
     [host: "gnatsd-cluster2.example.org", port: 4222]
   ],
@@ -181,66 +169,6 @@ config :roulette, :connection,
   pool_size: 10
 
 ```
-
-And you also can set configuration for each role (`Publisher` and `Subscriber`)
-
-### Publisher specific configuration
-
-Here is a default setting.
-
-```
-config :roulette, :publisher,
-  max_retry: 10
-```
-
-### Subscriber specific configuration
-
-Here is a default setting.
-
-```
-config :roulette, :publisher,
-  max_retry: 10,
-  restart: :temporary
-```
-
-#### max_retry
-#### restart
-
-This setting is used only when you set :permanent for :restart.
-
-
-### Gnat setting
-
-This is default setting passed to Gnat.
-See Gnat document for more detail.
-
-```elixir
-config :roulette, :connection,
-  ring: [
-    # your ring setting
-  ],
-  gnat: %{
-    connection_timeout: 5_000,
-    tls: false,
-    ssl_opts: [],
-    tcp_opts: [:binary, {:nodelay, true}]
-  }
-
-```
-
-## Setup Supervisor
-
-In your application bootstrap
-
-```elixir
-children = [
-  {Roulette, [role: :both]},
-  # ... setup other workers and supervisors
-]
-Supervisor.start_link(children, strategy: :one_for_one)
-```
-
-Put `Roulette` as one of children for your supervisor.
 
 You can pass `role` parameter
 

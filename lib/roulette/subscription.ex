@@ -152,8 +152,8 @@ defmodule Roulette.Subscription do
       module:         module,
       ref:            nil,
       nats:           nil,
-      restart:        Config.get(module, :subscriber, :restart),
-      show_debug_log: Config.get(module, :subscriber, :show_debug_log),
+      restart:        Config.get(module, :subscription_restart),
+      show_debug_log: Config.get(module, :show_debug_log),
     }
   end
 
@@ -245,7 +245,7 @@ defmodule Roulette.Subscription do
 
   defp start_setup(state) do
     attempts  = 0
-    max_retry = Config.get(state.module, :subscriber, :max_retry)
+    max_retry = Config.get(state.module, :max_retry)
     send self(), {:setup, attempts, max_retry}
   end
 
@@ -257,7 +257,7 @@ defmodule Roulette.Subscription do
   end
 
   defp calc_backoff(attempts, module) do
-    Backoff.calc(module, :subscriber, attempts)
+    Backoff.calc(module, attempts)
   end
 
 end
