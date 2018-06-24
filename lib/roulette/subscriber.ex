@@ -23,6 +23,7 @@ defmodule Roulette.Subscriber do
 
   @spec unsub(module, pid) :: :ok | {:error, :not_found}
   def unsub(module, subscription) when is_pid(subscription) do
+    Process.unlink(subscription)
     SubscriptionSupervisor.terminate_child(module, subscription)
   end
 

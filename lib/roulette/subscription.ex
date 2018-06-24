@@ -100,6 +100,7 @@ defmodule Roulette.Subscription do
         "<Roulette.Subscription:#{inspect self()}> EXIT(consumer:#{inspect pid})"
       end
     end
+    Process.unlink(pid)
     {:stop, :shutdown, state}
   end
   def handle_info({:EXIT, pid, _reason}, state) do

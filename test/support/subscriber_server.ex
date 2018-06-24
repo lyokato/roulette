@@ -10,6 +10,10 @@ defmodule Roulette.Test.SubscriberServer do
     GenServer.call(pid, {:sub, topic})
   end
 
+  def unsub(pid, topic) do
+    GenServer.call(pid, {:unsub, topic})
+  end
+
   def pub(pid, topic, data) do
     GenServer.call(pid, {:pub, topic, data})
   end
@@ -18,6 +22,10 @@ defmodule Roulette.Test.SubscriberServer do
 
   def start_link(name) do
     GenServer.start_link(__MODULE__, nil, name: name)
+  end
+
+  def start(name) do
+    GenServer.start(__MODULE__, nil, name: name)
   end
 
   @impl GenServer
@@ -35,6 +43,10 @@ defmodule Roulette.Test.SubscriberServer do
   @impl GenServer
   def handle_call({:sub, topic}, _from, state) do
     result = Roulette.Test.PubSub1.sub(topic)
+    {:reply, result, state}
+  end
+  def handle_call({:unsub, topic}, _from, state) do
+    result = Roulette.Test.PubSub1.unsub(topic)
     {:reply, result, state}
   end
   def handle_call({:pub, topic, data}, _from, state) do
