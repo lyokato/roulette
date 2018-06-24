@@ -10,11 +10,23 @@ defmodule Roulette.Supervisor do
 
   @type role :: :both | :subscriber | :publisher
 
-  def start_link([module, conf, opts]) do
+  @spec child_spec(module, term, Keyword.t) :: Supervisor.child_spec
+  def child_spec(module, conf, opts) do
+    name = Module.concat(module, Supervisor)
+    %{
+      id: name,
+      start: {__MODULE__, :start_link, [module, conf, opts]},
+      type: :supervisor
+    }
+  end
+
+  @spec start_link(module, term, Keyword.t) :: Supervisor.on_start
+  def start_link(module, conf, opts) do
     name = Module.concat(module, Supervisor)
     Supervisor.start_link(__MODULE__, [module, conf, opts], name: name)
   end
 
+  @impl Supervisor
   def init([module, conf, opts]) do
     children = children(module, conf, opts)
     Supervisor.init(children, strategy: :one_for_one)

@@ -1,4 +1,4 @@
-defmodule Roulette.Test.SubscriberServer do
+defmodule Roulette.Test.Session2 do
 
   use GenServer
 
@@ -42,15 +42,15 @@ defmodule Roulette.Test.SubscriberServer do
 
   @impl GenServer
   def handle_call({:sub, topic}, _from, state) do
-    result = Roulette.Test.PubSub1.sub(topic)
+    result = Roulette.Test.PubSub2.sub(topic)
     {:reply, result, state}
   end
   def handle_call({:unsub, topic}, _from, state) do
-    result = Roulette.Test.PubSub1.unsub(topic)
+    result = Roulette.Test.PubSub2.unsub(topic)
     {:reply, result, state}
   end
   def handle_call({:pub, topic, data}, _from, state) do
-    result = Roulette.Test.PubSub1.pub(topic, data)
+    result = Roulette.Test.PubSub2.pub(topic, data)
     {:reply, result, state}
   end
   def handle_call(:stack, _from, state) do

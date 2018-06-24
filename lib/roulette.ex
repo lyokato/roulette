@@ -46,7 +46,7 @@ defmodule Roulette do
 
       @spec child_spec(Keyword.t) :: Supervisor.child_spec
       def child_spec(opts \\ []) do
-        Roulette.Supervisor.child_spec([__MODULE__, @config, opts])
+        Roulette.Supervisor.child_spec(__MODULE__, @config, opts)
       end
 
     end
