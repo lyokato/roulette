@@ -19,34 +19,64 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/roulette](https://hexdocs.pm/roulette).
 
-## Simple Usage Example
+THIS DOCUMENT WILL BE TRANSLATED TO ENGLISH LATER
 
-Configuration
+## Prepare Your Own PubSub module
 
 ```elixir
-config :roulette, :connection,
-  ring: [
-    "gnatsd-cluster1.example.org",
-    "gnatsd-cluster2.example.org"
-  ]
-
+defmodule MyApp.PubSub do
+  use Roulette, otp_app: :my_app
+end
 ```
 
-In your application bootstrap
+## Configuration
+
+Setup configuration like following
 
 ```elixir
-children = [
-  {Roulette, []},
-  # ... setup other workers and supervisors
-]
-Supervisor.start_link(children, strategy: :one_for_one)
+config :my_app, MyApp.PubSub,
+  connection: [
+    servers: [
+      [host: "gnatsd1.example.org", port: 4222],
+      [host: "gnatsd2.example.org", port: 4222],
+      [host: "gnatsd3.example.org", port: 4222]
+    ]
+    # ...
+  ],
+  publisher: [
+    # publisher specific configuration
+  ],
+  subscriber: [
+    # subscriber specific configuration
+  ],
 ```
 
-Server process in your app.
+## Application
+
+Append your PubSub module onto your application's supervisor
 
 ```elixir
-defmodule YourSession do
+defmodule MyApp.Application do
+  use Application
 
+  def start(_type, _args) do
+    children = [
+      {MyApp.Pubsub, []}
+      # ... other children
+    ]
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor..start_link(children, opts)
+  end
+
+end
+```
+
+## Usage
+
+Subscribe events.
+
+```elixir
+defmodule MyApp.Session do
   use GenServer
 
   def start_link(opts) do
@@ -55,7 +85,7 @@ defmodule YourSession do
 
   def init(opts) do
     username = Keyword.fetch!(opts, :username)
-    Roulette.sub(username)
+    MyApp.PubSub.sub!(username)
     {:ok, %{username: username}}
   end
 
@@ -74,7 +104,7 @@ end
 Anywhere else you want to publish message in your app.
 
 ```elixir
-Roulette.pub("foobar", data)
+MyApp.PubSub.pub!("foobar", data)
 ```
 
 ## Premised gnatsd Network Architecture
@@ -108,14 +138,16 @@ Setup multiple gnatsd-cluster beforehand, and when your app sends
 ## Full Configuration Description
 
 Here is a minimum configuration example,
-You must setup `ring` list.
+You must setup `servers` list.
 Put your load-balancers' hostname into it.
 
 ```elixir
-config :roulette, :connection,
-  ring: [
-    "gnatsd-cluster1.example.org",
-    "gnatsd-cluster2.example.org"
+config :my_app, MyApp.PubSub,
+  connection: [
+    servers: [
+      "gnatsd-cluster1.example.org",
+      "gnatsd-cluster2.example.org"
+    ]
   ]
 
 ```
@@ -123,12 +155,13 @@ config :roulette, :connection,
 Or else, you can use keyword list for each host.
 
 ```elixir
-config :roulette, :connection,
-  ring: [
-    [host: "gnatsd-cluster1.example.org", port: 4222],
-    [host: "gnatsd-cluster2.example.org", port: 4222]
+config :my_app, MyApp.PubSub,
+  connection: [
+    servers: [
+      [host: "gnatsd-cluster1.example.org", port: 4222],
+      [host: "gnatsd-cluster2.example.org", port: 4222]
+    ]
   ]
-
 ```
 
 If there is no `port` setting, 4222 is set by defaut.

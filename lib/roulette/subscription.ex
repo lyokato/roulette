@@ -60,8 +60,8 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{nats: pid, restart: :temporary} = state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> DOWN(nats:#{inspect pid}) start to shutdown"
       end
     end
@@ -69,8 +69,8 @@ defmodule Roulette.Subscription do
     {:stop, :shutdown, %{state| nats: nil, ref: nil}}
   end
   def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{nats: pid, restart: :permanent} = state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> DOWN(nats:#{inspect pid}) start to reconnect"
       end
     end
@@ -80,8 +80,8 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, %{consumer: pid} = state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> DOWN(consumer:#{inspect pid})"
       end
     end
@@ -95,16 +95,16 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info({:EXIT, pid, _reason}, %{consumer: pid} = state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> EXIT(consumer:#{inspect pid})"
       end
     end
     {:stop, :shutdown, state}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> EXIT(#{inspect pid})"
       end
     end
@@ -112,8 +112,8 @@ defmodule Roulette.Subscription do
   end
 
   def handle_info(info, state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> unsupported info: #{inspect info}"
       end
     end
@@ -122,16 +122,16 @@ defmodule Roulette.Subscription do
 
   @impl GenServer
   def terminate(_reason, %{ref: nil} = state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
       end
     end
     :ok
   end
   def terminate(_reason, state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
       end
     end
@@ -162,8 +162,8 @@ defmodule Roulette.Subscription do
 
       {:ok, nats, ref} ->
         Process.monitor(nats)
-        Logger.debug fn ->
-          if state.show_debug_log do
+        if state.show_debug_log do
+          Logger.debug fn ->
             "<Roulette.Subscription:#{inspect self()}> start subscription on #{state.topic}"
           end
         end

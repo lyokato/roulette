@@ -50,17 +50,17 @@ defmodule Roulette.Connection do
         port: state.port
       })
 
-    Logger.debug fn ->
-      if state.show_debug_log do
-        "<Roulette.Connection:#{inspect self()}> CONNECT: #{inspect nats_opts}"
+    if state.show_debug_log do
+      Logger.debug fn ->
+        "<Roulette.Connection:#{inspect self()}> connect: #{inspect nats_opts}"
       end
     end
 
     case NatsClient.start_link(nats_opts) do
 
       {:ok, nats} ->
-        Logger.debug fn ->
-          if state.show_debug_log do
+        if state.show_debug_log do
+          Logger.debug fn ->
             "<Roulette.Connection:#{inspect self()}> linked to nats(#{inspect nats})."
           end
         end
@@ -120,16 +120,16 @@ defmodule Roulette.Connection do
     {:noreply, %{state| nats: nil}}
   end
   def handle_info({:EXIT, pid, _reason}, state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Connection:#{inspect self()}> EXIT(#{inspect pid})"
       end
     end
     {:stop, :shutdown, state}
   end
   def handle_info(info, state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Connection:#{inspect self()}> unsupported info: #{inspect info}"
       end
     end
@@ -146,8 +146,8 @@ defmodule Roulette.Connection do
 
   @impl GenServer
   def terminate(reason, state) do
-    Logger.debug fn ->
-      if state.show_debug_log do
+    if state.show_debug_log do
+      Logger.debug fn ->
         "<Roulette.Connection:#{inspect self()}> terminate: #{inspect reason}"
       end
     end
