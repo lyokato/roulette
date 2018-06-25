@@ -53,6 +53,7 @@ defmodule Roulette.Publisher do
       :ok -> :ok
 
       :error when attempts < max_retry ->
+        Logger.warn "<Roulette.Publisher> failed to pub, retry after interval"
         attempts |> calc_backoff(module) |> Process.sleep()
         pub_on_cluster(module, pool, topic, data, attempts + 1, max_retry)
 
@@ -81,7 +82,7 @@ defmodule Roulette.Publisher do
             end
 
           {:error, :timeout} ->
-            Logger.warn "<Roulette.Publisher> failed to checkout connection: timeout (maybe closing)"
+            Logger.warn "<Roulette.Publisher> failed to checkout connection: timeout"
             :error
 
           {:error, :not_found} ->
