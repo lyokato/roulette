@@ -76,6 +76,7 @@ defmodule Roulette.Config do
     }
 
   @type config_key :: :servers
+                    | :role
                     | :ping_interval
                     | :max_ping_failure
                     | :show_debug_log
