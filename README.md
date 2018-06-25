@@ -117,13 +117,14 @@ and doesn't mind which endpoint to connect to.
 However if your application servers send `PUBLISH` so much,
 it'll cause troubles eventuallly.
 
-![roulette_03](https://user-images.githubusercontent.com/30877/41829333-0f67267c-7875-11e8-994a-745fec2ebdd6.png)
-
 Roulette resolves this problem with `Consistent Hashing`.
 
 Setup multiple gnatsd-cluster beforehand, and when your app sends
 `PUBLISH` or `SUBSCRIBE` message,
 "Which cluster your app sends message to" is decided by the `topic`.
+
+
+![roulette_03](https://user-images.githubusercontent.com/30877/41829333-0f67267c-7875-11e8-994a-745fec2ebdd6.png)
 
 ## Full Configuration Description
 
