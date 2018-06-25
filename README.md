@@ -1,6 +1,6 @@
 # Roulette
 
-Scalable PubSub library which uses HashRing-ed gnatsd-cluster
+Scalable PubSub client library which uses HashRing-ed gnatsd-cluster
 
 ## Installation
 
@@ -61,9 +61,7 @@ defmodule MyApp.Application do
 end
 ```
 
-## Usage
-
-Subscribe events.
+## Simple Usage
 
 ```elixir
 defmodule MyApp.Session do
@@ -101,7 +99,9 @@ MyApp.PubSub.pub!("foobar", data)
 
 gnatsd supports cluster-mode. This works with full-mesh and one-hop messaging system to sync events.
 
-<image>
+[gnatsd's full-mesh architecture](https://github.com/nats-io/gnatsd#full-mesh-required)
+
+![roulette_01](https://user-images.githubusercontent.com/30877/41829326-0c040e5a-7875-11e8-8680-d89bf8ccbd39.png)
 
 Roulette assumes that you put a load-balancer like AWS-NBL in front of each gnatsd-clusters.
 
@@ -109,7 +109,7 @@ Roulette doesn't have a responsiblity for health-check and load-balancing betwee
 exists in a single gnatsd-cluster.
 Roulette assumes that It's load-balancers' responsibility.
 
-<image>
+![roulette_02](https://user-images.githubusercontent.com/30877/41829331-0e27822a-7875-11e8-8407-fce8268e06ac.png)
 
 Roulette connects to each backend gnatsd-server through load-balancers,
 and doesn't mind which endpoint to connect to.
@@ -117,7 +117,7 @@ and doesn't mind which endpoint to connect to.
 However if your application servers send `PUBLISH` so much,
 it'll cause troubles eventuallly.
 
-<image>
+![roulette_03](https://user-images.githubusercontent.com/30877/41829333-0f67267c-7875-11e8-994a-745fec2ebdd6.png)
 
 Roulette resolves this problem with `Consistent Hashing`.
 
@@ -155,7 +155,7 @@ If there is no `port` setting, 4222 is set by defaut.
 |key|default|description|
 |:--|:--|:--|
 |role|:both|You can choose **:subscriber**, **:publisher**, or **:both**|
-|servers||You can choose **:subscriber**, **:publisher**, or **:both**|
+|servers|required|servers list used as hash-ring|
 |pool_size|5|number of connections for each gnatsd-cluster|
 |ping_interval|5_000|sends PING message to gnatsd with this interval (milliseconds)|
 |max_ping_failure|2|if PONG doesn't return while this number of PING sends, Roulette disconnects the connection.|
@@ -170,6 +170,17 @@ If there is no `port` setting, 4222 is set by defaut.
 - :both (default) - setup both `Publisher` and `Subscriber` connections
 - :subscriber - setup `Subscriber` connections only
 - :publisher - setup `Publisher` connections only
+
+### subscription_restart
+
+#### :temporary
+
+subscription-process sends EXIT message to consumer process when gnatsd-connection is disconnected.
+
+#### :permanent
+
+subscription-process try to keep subscription.
+when gnatsd-connection is disconnected, retry to sends SUBSCRIBE message through other connections.
 
 ## Detailed Usage
 
@@ -288,3 +299,4 @@ MIT-LICENSE
 ## Author
 
 Lyo Kaot <lyo.kato __at__ gmail.com>
+
