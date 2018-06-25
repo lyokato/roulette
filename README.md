@@ -107,12 +107,12 @@ Roulette assumes that you put a load-balancer like AWS-NBL in front of each gnat
 
 Roulette doesn't have a responsiblity for health-check and load-balancing between gnatsd-servers
 exists in a single gnatsd-cluster.
-Roulette assumes that It's load-balancers' responsibility.
+Roulette assumes that It's a load-balancers' responsibility.
 
 ![roulette_02](https://user-images.githubusercontent.com/30877/41829331-0e27822a-7875-11e8-8407-fce8268e06ac.png)
 
-Roulette connects to each backend gnatsd-server through load-balancers,
-and doesn't mind which endpoint to connect to.
+Roulette connects to each gnatsd-server through load-balancers,
+and doesn't mind which endpoint it connects to.
 
 However if your application servers send `PUBLISH` so much,
 it'll cause troubles eventuallly.
@@ -160,7 +160,7 @@ If there is no `port` setting, 4222 is set by defaut.
 |pool_size|5|number of connections for each gnatsd-cluster|
 |ping_interval|5_000|sends PING message to gnatsd with this interval (milliseconds)|
 |max_ping_failure|2|if PONG doesn't return while this number of PING sends, Roulette disconnects the connection.|
-|max_retry|10|When it fails to send PUBLISH or SUBSCRIBE messages, it automatically retry|
+|max_retry|10|When it fails to send PUBLISH or SUBSCRIBE messages, it automatically retries until count of failure reaches to this number|
 |max_backoff|5_000|max duration(milliseconds) used to calculate backoff period|
 |base_backoff|10|base number used to calculate backoff period|
 |show_debug_log|false|if this is true, Roulette dumps many debug logs.|

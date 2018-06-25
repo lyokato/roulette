@@ -33,7 +33,7 @@ defmodule Roulette.Config do
   |pool_size|5|number of connections for each gnatsd-cluster|
   |ping_interval|5_000|sends PING message to gnatsd with this interval (milliseconds)|
   |max_ping_failure|2|if PONG doesn't return while this number of PING sends, Roulette disconnects the connection.|
-  |max_retry|10|When it fails to send PUBLISH or SUBSCRIBE messages, it automatically retry|
+  |max_retry|10|When it fails to send PUBLISH or SUBSCRIBE messages, it automatically retries until count of failure reaches to this number|
   |max_backoff|5_000|max duration(milliseconds) used to calculate backoff period|
   |base_backoff|10|base number used to calculate backoff period|
   |show_debug_log|false|if this is true, Roulette dumps many debug logs.|

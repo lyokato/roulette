@@ -92,12 +92,12 @@ defmodule Roulette do
 
   Roulette doesn't have a responsiblity for health-check and load-balancing between gnatsd-servers
   exists in a single gnatsd-cluster.
-  Roulette assumes that It's load-balancers' responsibility.
+  Roulette assumes that It's a load-balancers' responsibility.
 
   ![roulette_02](https://user-images.githubusercontent.com/30877/41829331-0e27822a-7875-11e8-8407-fce8268e06ac.png)
 
-  Roulette connects to each backend gnatsd-server through load-balancers,
-  and doesn't mind which endpoint to connect to.
+  Roulette connects to each gnatsd-server through load-balancers,
+  and doesn't mind which endpoint it connects to.
 
   However if your application servers send `PUBLISH` so much,
   it'll cause troubles eventuallly.

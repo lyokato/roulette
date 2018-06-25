@@ -43,7 +43,7 @@ defmodule Roulette.Mixfile do
 
   defp package() do
     [
-      description: "HashRing supported gnatsd client",
+      description: "Scalable PubSub client for HashRing-ed gnatsd-cluster",
       licenses: ["MIT"],
       links: %{
         "Github" => "https://github.com/lyokato/roulette",
