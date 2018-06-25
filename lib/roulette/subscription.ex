@@ -2,7 +2,7 @@ defmodule Roulette.Subscription do
 
   require Logger
 
-  use GenServer
+  use GenServer, restart: :temporary
 
   alias Roulette.ClusterPool
   alias Roulette.Connection
@@ -122,18 +122,18 @@ defmodule Roulette.Subscription do
   end
 
   @impl GenServer
-  def terminate(_reason, %{ref: nil} = state) do
+  def terminate(reason, %{ref: nil} = state) do
     if state.show_debug_log do
       Logger.debug fn ->
-        "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
+        "<Roulette.Subscription:#{inspect self()}> terminate: reason - #{inspect reason}, state - #{inspect state}"
       end
     end
     :ok
   end
-  def terminate(_reason, state) do
+  def terminate(reason, state) do
     if state.show_debug_log do
       Logger.debug fn ->
-        "<Roulette.Subscription:#{inspect self()}> terminate: #{inspect state}"
+        "<Roulette.Subscription:#{inspect self()}> terminate: reason - #{inspect reason}, state - #{inspect state}"
       end
     end
     do_nats_unsub(state.nats, state.ref)
