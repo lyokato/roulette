@@ -1,6 +1,7 @@
 defmodule Roulette.ClusterChooser do
 
   alias Roulette.Util.IndexList
+  alias ExHashRing.HashRing
 
   def choose(module, topic) do
     [ring, hosts] = FastGlobal.get(module)
